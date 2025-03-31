@@ -9,6 +9,10 @@ import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransa
 import com.arjun.len_denkhata.data.database.supplier.SupplierDao
 import com.arjun.len_denkhata.data.database.TransactionDao
 import com.arjun.len_denkhata.data.database.UploadStatusDao
+import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
+import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
+import com.arjun.len_denkhata.data.utils.TransactionMapper
+import com.arjun.len_denkhata.data.utils.TransactionProcessor
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -86,6 +90,14 @@ object AppModule {
     fun provideNotificationManager(@ApplicationContext context: Context): NotificationManagerCompat {
         return NotificationManagerCompat.from(context)
     }
+
+    @Provides
+    fun provideTransactionMapper(): TransactionMapper = TransactionMapper()
+
+    @Provides fun provideTransactionProcessor(customerTransactionRepository: CustomerTransactionRepository, customerRepository: CustomerRepository): TransactionProcessor {
+        return TransactionProcessor(customerTransactionRepository, customerRepository)
+    }
+
 //    @Singleton
 //    @ApplicationScope
 //    @Provides

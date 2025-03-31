@@ -28,4 +28,7 @@ interface CustomerDao {
 
     @Query("SELECT * FROM customers WHERE id = :customerId")
     fun getCustomerById(customerId: String): Flow<CustomerEntity?>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM customers WHERE id = :customerId LIMIT 1)")
+    suspend fun customerExists(customerId: String): Boolean
 }

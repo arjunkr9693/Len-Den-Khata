@@ -75,11 +75,11 @@ class CustomerViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadAllTransactionsAndCalculateTotals() {
-        val ownerId = UserSession.phoneNumber // Handle null ownerId
-        customerTransactionRepository.fetchAllTransactions(ownerId!!)
-        calculateTotals() // Calculate totals after loading transactions
-    }
+//    private suspend fun loadAllTransactionsAndCalculateTotals() {
+//        val ownerId = UserSession.phoneNumber // Handle null ownerId
+//        customerTransactionRepository.fetchAllTransactions(ownerId!!)
+//        calculateTotals() // Calculate totals after loading transactions
+//    }
 //    private fun calculateTodayDue(customers: List<CustomerEntity>) {
 //        viewModelScope.launch {
 //            _todayDue.value = customerTransactionRepository.calculateTodayDue()
@@ -158,7 +158,6 @@ class CustomerViewModel @Inject constructor(
     fun deleteTransaction(transaction: CustomerTransactionEntity, deletedAmount: Double) {
         viewModelScope.launch {
             customerTransactionRepository.deleteTransaction(transaction)
-            customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, isCredit = !transaction.isCredit)
         }
     }
 

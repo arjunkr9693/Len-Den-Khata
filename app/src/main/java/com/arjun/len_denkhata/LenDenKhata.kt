@@ -14,6 +14,8 @@ import com.arjun.len_denkhata.data.utils.UserSession
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.take
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -25,6 +27,8 @@ class LenDenKhata : Application(), Configuration.Provider {
     @Inject
     lateinit var uploadStatusDao: UploadStatusDao
     @Inject lateinit var syncRepository: FirestoreSyncRepository
+
+    private var phoneNumberJob: Job? = null
 
     private val workConstraints by lazy {
         Constraints.Builder()
@@ -56,13 +60,26 @@ class LenDenKhata : Application(), Configuration.Provider {
 
             override fun onActivityResumed(activity: Activity) {
                 UserSession.isContactPickerShowing = false
-                UserSession.phoneNumber?.let { userId ->
-                    syncRepository.startIncomingTransactionListener(userId)
+
+                // Start observing phone number
+                phoneNumberJob = applicationScope.launch {
+                    UserSession.observablePhoneNumber
+                        .filterNotNull()
+                        .take(1)
+                        .collect { userId ->
+                            Log.d("OwnerID", userId)
+                            syncRepository.startIncomingTransactionListener(userId)
+                            // Automatically cancels after collection
+                        }
                 }
+
                 logActivityEvent("resumed", activity)
             }
 
             override fun onActivityPaused(activity: Activity) {
+                phoneNumberJob?.cancel()
+                phoneNumberJob = null
+
                 if (!UserSession.isContactPickerShowing) {
                     checkAndEnqueueUploadWorker()
                     logActivityEvent("paused", activity)

@@ -13,7 +13,8 @@ import java.util.Date
             entity = CustomerEntity::class,
             parentColumns = ["id"],
             childColumns = ["customerId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
+//            deferred = true // Allows temporary violations
         )
     ],
 )
@@ -26,5 +27,6 @@ data class CustomerTransactionEntity(
     val date: Date,
     val description: String? = null,
     val isCredit: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isMadeByOwner: Boolean = true
 )

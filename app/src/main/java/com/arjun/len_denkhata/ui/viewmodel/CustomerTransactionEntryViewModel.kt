@@ -38,7 +38,6 @@ class CustomerTransactionEntryViewModel @Inject constructor(
             )
 
             transactionRepository.insertCustomerTransaction(transaction)
-            customerRepository.updateCustomerBalance(customerId, amount, isCredit)
 
             }
             navController.popBackStack() // Go back to transaction list
@@ -53,7 +52,7 @@ class CustomerTransactionEntryViewModel @Inject constructor(
         viewModelScope.launch {
             val updatedTransaction = customerTransaction.copy(amount = amount, description = description)
             transactionRepository.editTransaction(updatedTransaction)
-            customerRepository.updateCustomerBalance(updatedTransaction.customerId, amount - customerTransaction.amount, isCredit = customerTransaction.isCredit)
+            customerRepository.updateCustomerBalance(updatedTransaction.customerId, amount - customerTransaction.amount, isCredit = customerTransaction.isCredit, isEditing = isEditing)
 
         }
         navController.popBackStack() // Go back to transaction list

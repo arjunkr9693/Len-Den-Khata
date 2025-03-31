@@ -1,6 +1,5 @@
 package com.arjun.len_denkhata.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,7 +29,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
-import com.arjun.len_denkhata.data.utils.UserSession
 import com.arjun.len_denkhata.ui.components.CustomerTopBar
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 import java.text.SimpleDateFormat
@@ -197,10 +195,10 @@ fun TransactionItem(
     var expanded by remember { mutableStateOf(false) } // State to manage dropdown menu visibility
 
     // Determine if the transaction is from the owner or another user
-    val isOwner = transaction.ownerId == UserSession.phoneNumber
+    val isMadeByOwner = transaction.isMadeByOwner
 
     // Determine if the transaction is credit or debit based on the owner's perspective
-    val isCredit = if (isOwner) transaction.isCredit else !transaction.isCredit
+    val isCredit = transaction.isCredit
 
     // Background color based on debit/credit
     val backgroundColor = if (isCredit) Color(0xFFE8F5E9) else Color(0xFFFFEBEE) // Light green for credit, light red for debit
@@ -208,8 +206,9 @@ fun TransactionItem(
     // Text for "You gave" or "You got"
     val transactionTypeText = if (isCredit) "You got" else "You gave"
 
+
     // Alignment based on owner or other user
-    val alignment = if (isOwner) Arrangement.End else Arrangement.Start
+    val alignment = if (isMadeByOwner) Arrangement.End else Arrangement.Start
 
     Row(
         modifier = Modifier
@@ -251,7 +250,7 @@ fun TransactionItem(
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Menu bar at the top right (only for owner's transactions)
-                    if (isOwner) {
+                    if (isMadeByOwner) {
                         Row(
                             modifier = Modifier
                         ) {

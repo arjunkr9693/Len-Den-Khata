@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 var startDestination: String = Screen.Customer.route
                 val user = loginRepository.getUser()
                 if (user != null) {
-                    UserSession.phoneNumber = user
+                    UserSession.initialize(user)
                     LenDenKhataApp(startDestination)
                 } else {
                     startDestination = Screen.Login.route

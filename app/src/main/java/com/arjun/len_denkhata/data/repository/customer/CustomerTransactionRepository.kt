@@ -5,6 +5,7 @@ import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransa
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.database.UploadStatusDao
 import com.arjun.len_denkhata.data.database.UploadStatusEntity
+import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.utils.UploadManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,8 @@ class CustomerTransactionRepository @Inject constructor(
     private val customerTransactionDao: CustomerTransactionDao,
     private val firestore: FirebaseFirestore,
     private val uploadManager: UploadManager,
-    private val uploadStatusDao: UploadStatusDao
+    private val uploadStatusDao: UploadStatusDao,
+    private val customerRepository: CustomerRepository
 ) {
 
     private val _allTransactions = MutableStateFlow<List<CustomerTransactionEntity>>(emptyList())
@@ -44,9 +46,11 @@ class CustomerTransactionRepository @Inject constructor(
             // Update cached transactions after insert
             _allTransactions.value += transaction
             val transactionId = customerTransactionDao.insert(transaction)
-            uploadStatusDao.insertUploadStatus(UploadStatusEntity(transactionId = transactionId))
-            uploadManager.addTransactionToUploadQueue(transaction.copy(id = transactionId))
-
+            customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, transaction.isCredit)
+            if (transaction.isMadeByOwner) {
+                uploadStatusDao.insertUploadStatus(UploadStatusEntity(transactionId = transactionId))
+                uploadManager.addTransactionToUploadQueue(transaction.copy(id = transactionId))
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             // Handle error
@@ -97,11 +101,16 @@ class CustomerTransactionRepository @Inject constructor(
     suspend fun deleteTransaction(transaction: CustomerTransactionEntity) {
         withContext(Dispatchers.IO) {
             customerTransactionDao.delete(transaction)
+            customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, isCredit = !transaction.isCredit)
         }
     }
     suspend fun editTransaction(transaction: CustomerTransactionEntity) {
         withContext(Dispatchers.IO) {
             customerTransactionDao.update(transaction)
         }
+    }
+
+    suspend fun getTransactionByFirestoreId(firestoreId: String): CustomerTransactionEntity? {
+        return customerTransactionDao.getTransactionByFirestoreId(firestoreId)
     }
 }

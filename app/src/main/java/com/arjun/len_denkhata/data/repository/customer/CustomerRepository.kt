@@ -92,7 +92,7 @@ class CustomerRepository @Inject constructor(
         }
     }
 
-    suspend fun updateCustomerBalance(customerId: String, amount: Double, isCredit: Boolean) = withContext(
+    suspend fun updateCustomerBalance(customerId: String, amount: Double, isCredit: Boolean, isEditing: Boolean = false) = withContext(
         Dispatchers.IO) {
         val customer = customerDao.getCustomerByIdSync(customerId) ?: return@withContext
         val newBalance = if (isCredit) customer.overallBalance - amount else customer.overallBalance + amount
@@ -126,5 +126,9 @@ class CustomerRepository @Inject constructor(
 
     suspend fun updateCustomer(updatedCustomer: CustomerEntity) {
         customerDao.update(updatedCustomer)
+    }
+
+    suspend fun customerExists(ownerId: String): Boolean {
+        return customerDao.customerExists(ownerId)
     }
 }
