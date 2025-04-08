@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.data.utils
 
+import android.util.Log
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -18,7 +19,11 @@ fun CountryCodeDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
         title = { Text("Enter Country Code") },
         text = { TextField(value = countryCode, onValueChange = { countryCode = it }, label = { Text("Country Code") }) },
         confirmButton = {
-            Button(onClick = { onConfirm(countryCode) }) {
+            Button(onClick = {
+                Log.d("countryCode", countryCode)
+                onConfirm(countryCode)
+                onDismiss() // Call the onDismiss callback here
+            }) {
                 Text("Confirm")
             }
         },

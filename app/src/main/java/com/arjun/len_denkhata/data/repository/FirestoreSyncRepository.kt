@@ -2,18 +2,18 @@ package com.arjun.len_denkhata.data.repository
 
 import android.util.Log
 import com.arjun.len_denkhata.data.database.FirestoreTransaction
-import com.arjun.len_denkhata.data.database.UploadStatusDao
+import com.arjun.len_denkhata.data.database.SyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.utils.NotificationHelper
 import com.arjun.len_denkhata.data.utils.TransactionMapper
 import com.arjun.len_denkhata.data.utils.TransactionProcessor
+import com.arjun.len_denkhata.fireStoreCustomerTransactionPath
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +21,7 @@ import javax.inject.Singleton
 class FirestoreSyncRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val transactionDao: CustomerTransactionDao,
-    private val uploadStatusDao: UploadStatusDao,
+    private val syncStatusDao: SyncStatusDao,
     private val notificationHelper: NotificationHelper,
     private val mapper: TransactionMapper,
     private val transactionProcessor: TransactionProcessor
@@ -33,51 +33,45 @@ class FirestoreSyncRepository @Inject constructor(
     lateinit var externalScope: CoroutineScope
 
     private var customerListener: ListenerRegistration? = null
+    private var ownerTransactionListener: ListenerRegistration? = null
 
     // Start listening for incoming transactions where current user is the customer
     fun startIncomingTransactionListener(currentUserId: String) {
         stopListening()
-        Log.d("FirestoreSync", "Starting incoming transaction listener for user $currentUserId")
-        customerListener = firestore.collection("customerTransactions")
+        Log.d("FirestoreSync", "Starting incoming transaction listener for user (customer) $currentUserId")
+        customerListener = firestore.collection(fireStoreCustomerTransactionPath)
             .whereEqualTo("customerId", currentUserId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e("FirestoreSync", "Listen failed", error)
+                    Log.e("FirestoreSync", "Incoming (customer) listen failed", error)
                     return@addSnapshotListener
                 }
 
                 snapshot?.documentChanges?.forEach { change ->
-                    when(change.type) {
+                    when (change.type) {
                         DocumentChange.Type.ADDED -> {
-                            Log.d("Incoming Firebase", "Received new transaction: ${change.document.data}")
-                            externalScope.launch { processIncomingTransaction(change.document)}
+                            Log.d("Incoming Firebase (customer)", "Received new transaction: ${change.document.data}")
+                            externalScope.launch { processIncomingTransaction(change.document) }
                         }
                         DocumentChange.Type.MODIFIED -> {
-                            Log.d("Incoming Firebase", "Modified transaction: ${change.document.data}")
+                            Log.d("Incoming Firebase (customer)", "Modified transaction: ${change.document.data}")
+                            externalScope.launch { processIncomingTransaction(change.document, isUpdate = true) }
                         }
                         DocumentChange.Type.REMOVED -> {
-                            Log.d("Incoming Firebase", "Removed transaction: ${change.document.data}")
+                            Log.d("Incoming Firebase (customer)", "Removed transaction: ${change.document.data}")
+                            externalScope.launch { processRemovedTransaction(change.document) }
                         }
                     }
-//                    if (change.type == DocumentChange.Type.ADDED) {
-//                        Log.d("Incoming Firebase", "Received new transaction: ${change.document.data}")
-//                        externalScope.launch { processIncomingTransaction(change.document)}
-//                    }else if (change.type == DocumentChange.Type.MODIFIED) {
-//                        Log.d("Incoming Firebase", "Modified transaction: ${change.document.data}")
-//                    }
-//                    else if (change.type == DocumentChange.Type.REMOVED) {
-//                        Log.d("Incoming Firebase", "Removed transaction: ${change.document.data}")
-//                    }
                 }
             }
     }
 
-    private suspend fun processIncomingTransaction(document: DocumentSnapshot) {
+    private suspend fun processIncomingTransaction(document: DocumentSnapshot, isUpdate: Boolean = false) {
         try {
             val firestoreTransaction = document.toObject(FirestoreTransaction::class.java)
                 ?: return
 
-            Log.d("FirestoreSync", "Processing incoming transaction: $firestoreTransaction")
+            Log.d("FirestoreSync", "${if (isUpdate) "Updating" else "Processing new"} incoming transaction: $firestoreTransaction")
             transactionProcessor.processIncomingTransaction(
                 firestoreId = document.id,
                 ownerId = firestoreTransaction.ownerId,
@@ -86,54 +80,32 @@ class FirestoreSyncRepository @Inject constructor(
                 date = firestoreTransaction.date,
                 isCredit = firestoreTransaction.credit,
                 description = firestoreTransaction.description,
+                timestamp = firestoreTransaction.timestamp,
+                isEdited = firestoreTransaction.isEdited,
+                editedOn = firestoreTransaction.editedOn,
+                isUpdate = isUpdate
             )
 
-//            val roomEntity = mapper.toRoomEntity(firestoreTransaction)
-//                .copy(firestoreId = document.id).also {
-//                    Log.d("Room Conversion", "Success")
-//                }
-
-//            withContext(Dispatchers.IO) {
-//                if (transactionDao.getTransactionByFirestoreId(document.id) == null) {
-//                    val transactionId = transactionDao.insert(roomEntity)
-//                    Log.d("Room Insert", "Success")
-//                }
-//            }
         } catch (e: Exception) {
-            Log.e("FirestoreSync", "Deserialization error", e)
+            Log.e("FirestoreSync", "Deserialization error during processIncomingTransaction", e)
         }
     }
 
-    // Sync local transactions to Firestore
-    suspend fun syncOutgoingTransactions() {
-        val unuploaded = uploadStatusDao.getUnuploadedTransactions() ?: return
-
-        unuploaded.forEach { uploadStatus ->
-            try {
-                val transaction = transactionDao.getTransactionById(uploadStatus.transactionId)
-                    ?: return@forEach
-
-                // Upload to Firestore
-                val docRef = firestore.collection("customerTransactions")
-                    .add(transaction)
-                    .await()
-
-                // Update status
-                uploadStatusDao.deleteUploadStatus(uploadStatus)
-
-                // Update transaction with Firestore ID
-                transactionDao.update(
-                    transaction.copy(firestoreId = docRef.id)
-                )
-
-            } catch (e: Exception) {
-                Log.e("FirestoreSync", "Failed to upload transaction ${uploadStatus.transactionId}", e)
-            }
+    private suspend fun processRemovedTransaction(document: DocumentSnapshot) {
+        try {
+            val firestoreId = document.id
+            Log.d("FirestoreSync", "Processing removed transaction with Firestore ID: $firestoreId")
+            transactionProcessor.processRemovedTransaction(firestoreId)
+        } catch (e: Exception) {
+            Log.e("FirestoreSync", "Error processing removed transaction", e)
         }
     }
 
     fun stopListening() {
         customerListener?.remove()
         customerListener = null
+        ownerTransactionListener?.remove()
+        ownerTransactionListener = null
+        Log.d("FirestoreSync", "Stopped all Firestore listeners")
     }
 }

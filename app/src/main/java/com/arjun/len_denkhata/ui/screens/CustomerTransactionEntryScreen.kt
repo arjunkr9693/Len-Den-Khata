@@ -41,11 +41,11 @@ fun CustomerTransactionEntryScreen(
             Button(
                 onClick = {
                     if(isEditing) {
-                        viewModel.saveTransaction(
-                            isEditing = true,
+                        viewModel.updateTransaction(
+                            originalAmount = customerTransactionEntity!!.amount,
                             amount = amount.toDoubleOrNull() ?: 0.0,
                             description = description,
-                            customerTransaction = customerTransactionEntity!!,
+                            customerTransaction = customerTransactionEntity,
                             navController = navController
                         )
                     }else {

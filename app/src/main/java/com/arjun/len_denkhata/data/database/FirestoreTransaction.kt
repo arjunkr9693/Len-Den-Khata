@@ -9,5 +9,7 @@ data class FirestoreTransaction(
     val date: Date = Date(),
     val description: String = "",
     val credit: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isEdited: Boolean = false,
+    val editedOn: Long? = null
 )

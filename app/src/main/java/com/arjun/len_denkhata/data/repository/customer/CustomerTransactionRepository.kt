@@ -1,19 +1,18 @@
 package com.arjun.len_denkhata.data.repository.customer
 
 import android.util.Log
+import com.arjun.len_denkhata.data.database.SyncStatus
+import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.SyncStatusEntity
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
-import com.arjun.len_denkhata.data.database.UploadStatusDao
-import com.arjun.len_denkhata.data.database.UploadStatusEntity
-import com.arjun.len_denkhata.data.database.customer.CustomerDao
-import com.arjun.len_denkhata.data.utils.UploadManager
+import com.arjun.len_denkhata.data.utils.CustomerSyncManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import javax.inject.Inject
@@ -21,11 +20,14 @@ import javax.inject.Inject
 class CustomerTransactionRepository @Inject constructor(
     private val customerTransactionDao: CustomerTransactionDao,
     private val firestore: FirebaseFirestore,
-    private val uploadManager: UploadManager,
-    private val uploadStatusDao: UploadStatusDao,
+    private val customerSyncManager: CustomerSyncManager,
+    private val syncStatusDao: SyncStatusDao,
     private val customerRepository: CustomerRepository
 ) {
 
+    init {
+        Log.d("CustomerTransactionRepo", "Repository initialized")
+    }
     private val _allTransactions = MutableStateFlow<List<CustomerTransactionEntity>>(emptyList())
     val allTransactions: StateFlow<List<CustomerTransactionEntity>> = _allTransactions
 
@@ -43,24 +45,22 @@ class CustomerTransactionRepository @Inject constructor(
 
     suspend fun insertCustomerTransaction(transaction: CustomerTransactionEntity) {
         try {
-            // Update cached transactions after insert
-            _allTransactions.value += transaction
             val transactionId = customerTransactionDao.insert(transaction)
-            customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, transaction.isCredit)
-            if (transaction.isMadeByOwner) {
-                uploadStatusDao.insertUploadStatus(UploadStatusEntity(transactionId = transactionId))
-                uploadManager.addTransactionToUploadQueue(transaction.copy(id = transactionId))
+            val insertedTransaction = transaction.copy(id = transactionId)
+            _allTransactions.value += insertedTransaction
+            customerRepository.updateCustomerBalance(insertedTransaction.customerId, insertedTransaction.amount, insertedTransaction.isCredit)
+            if (insertedTransaction.isMadeByOwner) {
+                customerSyncManager.enqueueTransactionForUpload(insertedTransaction)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            // Handle error
+            Log.e("CustomerTransactionRepo", "Error inserting transaction: ${e.message}")
         }
     }
 
     private suspend fun calculateTodayDue() = withContext(Dispatchers.IO) {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
+        val now = calendar.timeInMillis
 
-        // Calculate the start of today (00:00:00.000)
         val todayStart = calendar.apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -68,49 +68,74 @@ class CustomerTransactionRepository @Inject constructor(
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
 
-        // Calculate the end of today (23:59:59.999)
         val todayEnd = calendar.apply {
-            add(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
         }.timeInMillis
 
-        // Filter transactions for today
-        val todayTransactions = _allTransactions.value.filter {
-            it.timestamp in todayStart until todayEnd
-        }
-
-        // Calculate total due for today (non-credit transactions)
-        val totalTodayDue = todayTransactions
-            .filter { !it.isCredit }
+        val totalTodayDue = _allTransactions.value
+            .filter { it.timestamp in todayStart..todayEnd && !it.isCredit }
             .sumOf { it.amount }
 
-        Log.d("testTag", "Today due: $totalTodayDue")
+        Log.d("CustomerTransactionRepo", "Today due: $totalTodayDue")
         _todayDue.value = totalTodayDue
     }
 
     fun getCustomerTransactionsByCustomerId(customerId: String): Flow<List<CustomerTransactionEntity>> {
         return customerTransactionDao.getTransactionsByCustomerId(customerId)
-//        return _allTransactions.map { transactions ->
-//            transactions.filter { it.customerId == customerId || it.ownerId == customerId }
-//        }
     }
 
     suspend fun deleteTransaction(transaction: CustomerTransactionEntity) {
-        withContext(Dispatchers.IO) {
-            customerTransactionDao.delete(transaction)
+        try {
+            customerTransactionDao.update(transaction.copy(isDeleted = true))
+            _allTransactions.value = _allTransactions.value.filter { it.id != transaction.id }
             customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, isCredit = !transaction.isCredit)
+            if (transaction.isMadeByOwner) {
+                customerSyncManager.enqueueTransactionForDelete(transaction.id)
+            }
+        } catch (e: Exception) {
+            Log.e("CustomerTransactionRepo", "Error deleting transaction: ${e.message}")
         }
     }
-    suspend fun editTransaction(transaction: CustomerTransactionEntity) {
-        withContext(Dispatchers.IO) {
+    suspend fun updateTransaction(transaction: CustomerTransactionEntity, originAmount: Double) {
+        try {
+            val amountDifference = transaction.amount - originAmount
             customerTransactionDao.update(transaction)
+            customerRepository.updateCustomerBalance(
+                transaction.customerId,
+                amountDifference,
+                transaction.isCredit,
+                isEditing = true
+            )
+            if (transaction.isMadeByOwner) {
+                customerSyncManager.enqueueTransactionForUpdate(transaction)
+            }
+        } catch (e: Exception) {
+            Log.e("CustomerTransactionRepo", "Error updating transaction: ${e.message}")
         }
     }
 
     suspend fun getTransactionByFirestoreId(firestoreId: String): CustomerTransactionEntity? {
         return customerTransactionDao.getTransactionByFirestoreId(firestoreId)
+    }
+
+    // --- Functions to handle local Sync Status (if needed directly from Repository) ---
+
+    fun getSyncStatus(transactionId: Long): Flow<SyncStatusEntity?> {
+        return syncStatusDao.getSyncStatus(transactionId)
+    }
+
+    suspend fun getSyncStatusSync(transactionId: Long): SyncStatusEntity? {
+        return syncStatusDao.getSyncStatusSync(transactionId)
+    }
+
+    fun getPendingSyncTransactions(status: SyncStatus): Flow<List<SyncStatusEntity>> {
+        return syncStatusDao.getSyncStatusesByStatus(status)
+    }
+
+    suspend fun getPendingSyncTransactionsSync(status: SyncStatus): List<SyncStatusEntity> {
+        return syncStatusDao.getSyncStatusesByStatusSync(status)
     }
 }

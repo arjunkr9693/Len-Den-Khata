@@ -6,8 +6,16 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 
+enum class SyncStatus {
+    PENDING_UPLOAD,
+    PENDING_UPDATE,
+    PENDING_DELETE,
+    UPLOADED,
+    FAILED // Optional: To track failed syncs
+}
+
 @Entity(
-    tableName = "uploadStatus",
+    tableName = "syncStatus",
     foreignKeys = [ForeignKey(
         entity = CustomerTransactionEntity::class,
         parentColumns = ["id"],
@@ -16,7 +24,8 @@ import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransa
     )],
     indices = [Index("transactionId")]
 )
-data class UploadStatusEntity(
+data class SyncStatusEntity(
     @PrimaryKey val transactionId: Long,
-    val uploadStatus: Boolean = false
+    val syncStatus: SyncStatus = SyncStatus.PENDING_UPLOAD, // Initial state is pending upload
+    val isUploaded: Boolean = false // Indicates if the initial upload was successful
 )

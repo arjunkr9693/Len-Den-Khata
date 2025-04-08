@@ -22,14 +22,18 @@ class TransactionProcessor @Inject constructor(
     @Transaction
     suspend fun processIncomingTransaction(
         firestoreId: String,
-        ownerId: String,  // The customer ID from Firestore
-        customerId: String,
+        ownerId: String,  // The customer ID from Firestore (who initiated the transaction)
+        customerId: String, // The current user's ID (who is the recipient)
         amount: Double,
         date: Date,
         isCredit: Boolean,
-        description: String = ""
+        description: String = "",
+        timestamp: Long,
+        isEdited: Boolean = false,
+        editedOn: Long? = null,
+        isUpdate: Boolean = false
     ) {
-        // 1. Ensure owner exists as customer
+        // 1. Ensure owner exists as customer in local DB
         if (!customerRepository.customerExists(ownerId)) {
             customerRepository.insertCustomer(
                 CustomerEntity(
@@ -41,12 +45,30 @@ class TransactionProcessor @Inject constructor(
             )
         }
 
-        val test = !isCredit
-        Log.d("TransactionProcessor", "Processing incoming transaction with isCredit: {$test}")
         withContext(Dispatchers.IO) {
-            if (customerTransactionRepository.getTransactionByFirestoreId(firestoreId) == null) {
+            val existingTransaction = customerTransactionRepository.getTransactionByFirestoreId(firestoreId)
+
+            if (existingTransaction == null) {
+                // Insert new incoming transaction
                 customerTransactionRepository.insertCustomerTransaction(
                     CustomerTransactionEntity(
+                        firestoreId = firestoreId,
+                        ownerId = customerId, // For incoming, current user is the 'owner' in local context
+                        customerId = ownerId, // The initiator is the 'customer' in this transaction
+                        amount = amount,
+                        date = date,
+                        isCredit = !isCredit, // Inverted for the recipient
+                        description = description,
+                        isMadeByOwner = false,
+                        timestamp = timestamp,
+                    )
+                )
+                Log.d("Room Insert (Incoming)", "Success for Firestore ID: $firestoreId")
+            } else if (isUpdate && existingTransaction.editedOn != editedOn) {
+                // Update existing incoming transaction if modified remotely
+                customerTransactionRepository.updateTransaction(
+                    CustomerTransactionEntity(
+                        id = existingTransaction.id, // Keep the local ID
                         firestoreId = firestoreId,
                         ownerId = customerId,
                         customerId = ownerId,
@@ -54,10 +76,29 @@ class TransactionProcessor @Inject constructor(
                         date = date,
                         isCredit = !isCredit,
                         description = description,
-                        isMadeByOwner = false
-                    )
+                        isMadeByOwner = false,
+                        timestamp = timestamp,
+                        isEdited = isEdited,
+                        editedOn = editedOn
+                    ),
+                    existingTransaction.amount
                 )
-                Log.d("Room Insert", "Success")
+                Log.d("Room Update (Incoming)", "Success for Firestore ID: $firestoreId")
+            } else {
+
+            }
+        }
+    }
+
+    @Transaction
+    suspend fun processRemovedTransaction(firestoreId: String) {
+        withContext(Dispatchers.IO) {
+            val existingTransaction = customerTransactionRepository.getTransactionByFirestoreId(firestoreId)
+            if (existingTransaction != null) {
+                customerTransactionRepository.deleteTransaction(existingTransaction)
+                Log.d("Room Delete (Incoming)", "Success for Firestore ID: $firestoreId")
+            } else {
+                Log.d("Room Delete (Incoming)", "Transaction with Firestore ID $firestoreId not found locally.")
             }
         }
     }

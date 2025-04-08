@@ -45,9 +45,8 @@ class LoginRepository @Inject constructor(
                 isLoggedIn = true
                 mobileNumber
             } else {
-                firestore.collection("users").document(mobileNumber).set(mapOf("id" to mobileNumber)).await()
-
                 sharedPreferences.edit().putString("mobileNumber", mobileNumber).apply()
+                firestore.collection("users").document(mobileNumber).set(mapOf("id" to mobileNumber)).await()
                 this.mobileNumber = mobileNumber
                 isLoggedIn = true
                 mobileNumber

@@ -42,17 +42,17 @@ class CustomerTransactionEntryViewModel @Inject constructor(
             }
             navController.popBackStack() // Go back to transaction list
     }
-    fun saveTransaction(
-        isEditing: Boolean,
+    fun updateTransaction(
+        originalAmount: Double,
         amount: Double,
         description: String,
         customerTransaction: CustomerTransactionEntity,
         navController: NavHostController,
     ) {
         viewModelScope.launch {
-            val updatedTransaction = customerTransaction.copy(amount = amount, description = description)
-            transactionRepository.editTransaction(updatedTransaction)
-            customerRepository.updateCustomerBalance(updatedTransaction.customerId, amount - customerTransaction.amount, isCredit = customerTransaction.isCredit, isEditing = isEditing)
+            val updatedTransaction = customerTransaction.copy(amount = amount, description = description, isEdited = true, editedOn = System.currentTimeMillis())
+            transactionRepository.updateTransaction(updatedTransaction, originalAmount)
+//            customerRepository.updateCustomerBalance(updatedTransaction.customerId, amount - customerTransaction.amount, isCredit = customerTransaction.isCredit)
 
         }
         navController.popBackStack() // Go back to transaction list

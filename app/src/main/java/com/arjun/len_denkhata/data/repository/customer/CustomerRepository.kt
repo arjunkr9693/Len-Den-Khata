@@ -79,12 +79,8 @@ class CustomerRepository @Inject constructor(
 
 
     suspend fun insertCustomer(customer: CustomerEntity): Long {
-        val firebaseDocumentId = customer.phone;
 
         return try {
-            withContext(Dispatchers.IO) {
-                firestore.collection("customers").document(firebaseDocumentId).set(customer).await()
-            }
             customerDao.insert(customer)
         } catch (e: Exception) {
             e.printStackTrace()

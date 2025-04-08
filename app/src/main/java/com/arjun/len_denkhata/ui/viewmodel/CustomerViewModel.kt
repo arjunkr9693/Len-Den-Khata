@@ -2,6 +2,7 @@ package com.arjun.len_denkhata.ui.viewmodel
 
 import android.content.ContentResolver
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
@@ -96,14 +97,21 @@ class CustomerViewModel @Inject constructor(
 
     fun mergeCountryCodeAndAddCustomer(countryCode: String, contentResolver: ContentResolver, navController: NavHostController) {
         viewModelScope.launch {
+            if(countryCode.isEmpty()){
+                Toast.makeText(navController.context, "Please enter country code", Toast.LENGTH_SHORT).show()
+                return@launch
+            }else if(countryCode[0] != '+') {
+                Toast.makeText(navController.context, "Please enter valid country code", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
             val fullNumber = countryCode + phoneNumberToMerge.value
-            val name = _contactName.value // Use stored contact name
-            val ownerId = loginRepository.mobileNumber ?: return@launch
-            val customer = CustomerEntity(id = fullNumber, name = name, phone = fullNumber)
-            customerRepository.insertCustomer(customer)
-            viewModelScope.launch { loadCustomerBalance(customerId = fullNumber) }
-            navController.navigate(Screen.CustomerTransaction.createRoute(customer.id))
-            _showCountryCodeDialog.value = false
+            val name = contactName.value.ifEmpty { fullNumber }
+            addCustomer(name, fullNumber, navController)
+//            val customer = CustomerEntity(id = fullNumber, name = name, phone = fullNumber)
+//            launch {
+//                customerRepository.insertCustomer(customer)
+//            }
+//            navController.navigate(Screen.CustomerTransaction.createRoute(customer.id))
         }
     }
 

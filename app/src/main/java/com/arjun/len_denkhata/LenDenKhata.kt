@@ -7,34 +7,27 @@ import android.os.Bundle
 import android.util.Log
 import androidx.work.*
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
-import com.arjun.len_denkhata.data.database.UploadStatusDao
+import com.arjun.len_denkhata.data.database.SyncStatusDao
 import com.arjun.len_denkhata.data.repository.FirestoreSyncRepository
-import com.arjun.len_denkhata.data.utils.UploadWorker
+import com.arjun.len_denkhata.data.utils.CustomWorkerFactory
+import com.arjun.len_denkhata.data.utils.CustomerSyncWorker
 import com.arjun.len_denkhata.data.utils.UserSession
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.take
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltAndroidApp
-class LenDenKhata : Application(), Configuration.Provider {
+class LenDenKhata : Application(), Configuration.Provider{
 
     @Inject
     lateinit var workerFactory: CustomWorkerFactory
-    @Inject
-    lateinit var uploadStatusDao: UploadStatusDao
+
     @Inject lateinit var syncRepository: FirestoreSyncRepository
 
     private var phoneNumberJob: Job? = null
-
-    private val workConstraints by lazy {
-        Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-    }
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -81,7 +74,6 @@ class LenDenKhata : Application(), Configuration.Provider {
                 phoneNumberJob = null
 
                 if (!UserSession.isContactPickerShowing) {
-                    checkAndEnqueueUploadWorker()
                     logActivityEvent("paused", activity)
                 }
             }
@@ -101,43 +93,12 @@ class LenDenKhata : Application(), Configuration.Provider {
         })
     }
 
-    private fun checkAndEnqueueUploadWorker() {
-        applicationScope.launch {
-            try {
-                val hasUnuploaded = withContext(Dispatchers.IO) {
-                    uploadStatusDao.hasUnuploadedTransactions()
-                }
-
-                if (hasUnuploaded) {
-                    enqueueUploadWorker()
-                    Log.d("UploadCheck", "Found unuploaded data, enqueuing worker")
-                } else {
-                    Log.d("UploadCheck", "No unuploaded data found")
-                }
-            } catch (e: Exception) {
-                Log.e("UploadCheck", "Error checking for unuploaded data", e)
-                // Enqueue worker anyway to be safe
-                enqueueUploadWorker()
-            }
-        }
-    }
 
     private fun logActivityEvent(event: String, activity: Activity) {
         Log.d("AppLifecycle", "${activity.localClassName} $event")
     }
 
-    private fun enqueueUploadWorker() {
-        val uploadWorkRequest = OneTimeWorkRequestBuilder<UploadWorker>()
-            .setConstraints(workConstraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                WorkRequest.MIN_BACKOFF_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-            .build()
 
-        WorkManager.getInstance(this).enqueue(uploadWorkRequest)
-    }
 
     override fun onTerminate() {
         applicationScope.cancel()
@@ -145,22 +106,3 @@ class LenDenKhata : Application(), Configuration.Provider {
     }
 }
 
-class CustomWorkerFactory @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val customerTransactionDao: CustomerTransactionDao,
-    private val uploadStatusDao: UploadStatusDao
-) : WorkerFactory() {
-
-    override fun createWorker(
-        appContext: Context,
-        workerClassName: String,
-        workerParameters: WorkerParameters
-    ): ListenableWorker {
-        return when (workerClassName) {
-            UploadWorker::class.java.name ->
-                UploadWorker(appContext, workerParameters, firestore, customerTransactionDao, uploadStatusDao)
-            else ->
-                throw IllegalArgumentException("Unknown worker class: $workerClassName")
-        }
-    }
-}

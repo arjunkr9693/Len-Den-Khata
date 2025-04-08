@@ -14,7 +14,7 @@ interface CustomerTransactionDao {
     @Delete
     suspend fun delete(transaction: CustomerTransactionEntity)
 
-    @Query("SELECT * FROM customerTransactions WHERE customerId = :customerId ORDER BY timestamp DESC")
+    @Query("SELECT * FROM customerTransactions WHERE customerId = :customerId AND isDeleted = 0 ORDER BY timestamp DESC")
     fun getTransactionsByCustomerId(customerId: String): Flow<List<CustomerTransactionEntity>>
 
     @Query("SELECT * FROM customerTransactions WHERE id = :transactionId")
@@ -25,4 +25,8 @@ interface CustomerTransactionDao {
 
     @Query("SELECT * FROM customerTransactions WHERE firestoreId = :firestoreId")
     suspend fun getTransactionByFirestoreId(firestoreId: String): CustomerTransactionEntity?
+
+    @Query("DELETE FROM customerTransactions WHERE id = :transactionId")
+    suspend fun deleteTransactionById(transactionId: Long)
+
 }

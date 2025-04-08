@@ -8,7 +8,8 @@ import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.supplier.SupplierDao
 import com.arjun.len_denkhata.data.database.TransactionDao
-import com.arjun.len_denkhata.data.database.UploadStatusDao
+import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionDao
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
 import com.arjun.len_denkhata.data.utils.TransactionMapper
@@ -23,7 +24,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
@@ -55,8 +55,18 @@ object AppModule {
     }
 
     @Provides
-    fun provideUploadStatusDao(appDatabase: AppDatabase): UploadStatusDao {
+    fun provideUploadStatusDao(appDatabase: AppDatabase): SyncStatusDao {
         return appDatabase.uploadStatusDao()
+    }
+
+    @Provides
+    fun provideCustomerTransactionDao(database: AppDatabase): CustomerTransactionDao {
+        return database.customerTransactionDao()
+    }
+
+    @Provides
+    fun provideMonthBookTransactionDao(database: AppDatabase): MonthBookTransactionDao {
+        return database.monthBookTransactionDao()
     }
 
     @Provides
@@ -69,10 +79,6 @@ object AppModule {
         return Firebase.auth
     }
 
-    @Provides
-    fun provideCustomerTransactionDao(database: AppDatabase): CustomerTransactionDao {
-        return database.customerTransactionDao()
-    }
 
     @Provides
     @Singleton

@@ -27,6 +27,9 @@ data class CustomerTransactionEntity(
     val date: Date,
     val description: String? = null,
     val isCredit: Boolean,
-    val timestamp: Long = System.currentTimeMillis(),
-    val isMadeByOwner: Boolean = true
+    val timestamp: Long,
+    val isMadeByOwner: Boolean = true,
+    val isEdited:Boolean = false,
+    val editedOn: Long? = null,
+    val isDeleted: Boolean = false
 )
