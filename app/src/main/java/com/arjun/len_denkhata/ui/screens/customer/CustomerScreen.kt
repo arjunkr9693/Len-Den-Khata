@@ -22,8 +22,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -38,6 +42,8 @@ import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 
 @Composable
 fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewModel = hiltViewModel()) {
+    var checkedContactName by remember { mutableStateOf(false) }
+
     val customers by viewModel.customers.collectAsState(initial = emptyList())
     val totalHaveToGive by viewModel.totalHaveToGive.collectAsState()
     val totalWillGet by viewModel.totalWillGet.collectAsState()
@@ -49,6 +55,13 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
 
     val showToast: (String) -> Unit = { message ->
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+
+    LaunchedEffect(customers.size){
+        if(customers.isNotEmpty() && !checkedContactName) {
+            viewModel.updateContactNamesFromPhonebook()
+            checkedContactName = true
+        }
     }
 
     val contactPickerLauncher = rememberLauncherForActivityResult(

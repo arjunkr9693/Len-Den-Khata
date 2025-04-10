@@ -21,11 +21,13 @@ class MonthBookRepository @Inject constructor(
     val totalIncome: Flow<Double?> = monthBookTransactionDao.getTotalIncome().conflate()
     val totalExpense: Flow<Double?> = monthBookTransactionDao.getTotalExpense().conflate()
 
-    suspend fun insertTransaction(transaction: MonthBookTransactionEntity) = withContext(Dispatchers.IO) {
+    suspend fun insertTransaction(transaction: MonthBookTransactionEntity, initialStoringWhenLogin: Boolean = false) = withContext(Dispatchers.IO) {
         val id = monthBookTransactionDao.insertTransaction(transaction)
             // Enqueue for upload after successful local insertion
+        if (!initialStoringWhenLogin) {
             val newTransaction = transaction.copy(id = id) // Ensure ID is set
             syncManager.enqueueTransactionForUpload(newTransaction)
+        }
     }
 
     suspend fun updateTransaction(transaction: MonthBookTransactionEntity) = withContext(Dispatchers.IO) {

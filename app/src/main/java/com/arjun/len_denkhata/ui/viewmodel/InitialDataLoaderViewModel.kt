@@ -181,7 +181,8 @@ class InitialDataLoaderViewModel @Inject constructor(
                     type = type,
                     description = description,
                     expenseCategory = monthBookExpenseCategory
-                )
+                ),
+                initialStoringWhenLogin = true
             )
         }
     }
