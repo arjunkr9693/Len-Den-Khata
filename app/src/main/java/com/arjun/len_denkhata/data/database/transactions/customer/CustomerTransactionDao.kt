@@ -14,6 +14,9 @@ interface CustomerTransactionDao {
     @Delete
     suspend fun delete(transaction: CustomerTransactionEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMultipleTransactions(transactions: List<CustomerTransactionEntity>)
+
     @Query("SELECT * FROM customerTransactions WHERE customerId = :customerId AND isDeleted = 0 ORDER BY timestamp DESC")
     fun getTransactionsByCustomerId(customerId: String): Flow<List<CustomerTransactionEntity>>
 

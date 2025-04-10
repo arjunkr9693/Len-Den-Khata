@@ -4,8 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
@@ -15,27 +17,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun CustomerTopBar(
-    customerName: String, // Name of the customer
-    customerPhoneNUmber: String,
+fun CustomTopBarWithIcon(
+    title: String, // Name of the customer
     onBackClick: () -> Unit, // Callback for back navigation
     modifier: Modifier = Modifier,
-    onTextClick: () -> Unit,
-
+    onTitleClick: () -> Unit,
+    rightIcon: ImageVector? = null, // New parameter for the right icon
+    onRightIconClick: () -> Unit = {} // Callback for the right icon click (optional)
 ) {
-    val context = LocalContext.current
-
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onTextClick() }
-            .padding(16.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clickable { onTitleClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Back Button
@@ -46,9 +47,9 @@ fun CustomerTopBar(
             )
         }
 
-        // Customer Name
+        // title
         Text(
-            text = customerName,
+            text = title,
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 16.dp),
@@ -56,17 +57,14 @@ fun CustomerTopBar(
             fontSize = 18.sp
         )
 
-        // Call Button
-        IconButton(
-            onClick = {
-                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$customerPhoneNUmber"))
-                context.startActivity(intent)
+        // Optional Right Icon
+        if (rightIcon != null) {
+            IconButton(onClick = onRightIconClick) {
+                Icon(
+                    imageVector = rightIcon,
+                    contentDescription = "Right Icon"
+                )
             }
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Call,
-                contentDescription = "Call"
-            )
         }
     }
 }

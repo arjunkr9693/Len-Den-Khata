@@ -8,7 +8,8 @@ import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.supplier.SupplierDao
 import com.arjun.len_denkhata.data.database.TransactionDao
-import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
+import com.arjun.len_denkhata.data.database.MonthBookSyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionDao
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
@@ -55,7 +56,7 @@ object AppModule {
     }
 
     @Provides
-    fun provideUploadStatusDao(appDatabase: AppDatabase): SyncStatusDao {
+    fun provideUploadStatusDao(appDatabase: AppDatabase): CustomerSyncStatusDao {
         return appDatabase.uploadStatusDao()
     }
 
@@ -69,6 +70,10 @@ object AppModule {
         return database.monthBookTransactionDao()
     }
 
+    @Provides
+    fun provideMonthBookSyncStatusDao(database: AppDatabase): MonthBookSyncStatusDao {
+        return database.monthBookSyncStatusDao()
+    }
     @Provides
     @Singleton
     fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()

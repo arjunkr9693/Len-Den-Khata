@@ -8,7 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.rememberNavController
 import com.arjun.len_denkhata.data.repository.LoginRepository
 import com.arjun.len_denkhata.data.utils.UserSession
-import com.arjun.len_denkhata.ui.screens.LoginScreen
+import com.arjun.len_denkhata.ui.screens.login.LoginScreen
 import com.arjun.len_denkhata.ui.theme.Len_DenKhataTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject

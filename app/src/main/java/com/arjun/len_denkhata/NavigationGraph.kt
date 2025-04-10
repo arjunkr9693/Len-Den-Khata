@@ -7,21 +7,24 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
-import com.arjun.len_denkhata.ui.screens.CustomerScreen
-import com.arjun.len_denkhata.ui.screens.CustomerTransactionEntryScreen
-import com.arjun.len_denkhata.ui.screens.CustomerTransactionScreen
-import com.arjun.len_denkhata.ui.screens.LoginScreen
+import com.arjun.len_denkhata.ui.screens.customer.CustomerDetailScreen
+import com.arjun.len_denkhata.ui.screens.customer.CustomerScreen
+import com.arjun.len_denkhata.ui.screens.customer.CustomerTransactionEntryScreen
+import com.arjun.len_denkhata.ui.screens.customer.CustomerTransactionScreen
+import com.arjun.len_denkhata.ui.screens.login.LoginScreen
 import com.arjun.len_denkhata.ui.screens.MoreScreen
 import com.arjun.len_denkhata.ui.screens.SupplierScreen
 import com.arjun.len_denkhata.ui.screens.SupplierTransactionScreen
 import android.util.Log
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.arjun.len_denkhata.data.utils.UserSession
+import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
 import com.arjun.len_denkhata.data.utils.toCustomerTransactionEntity
 import com.arjun.len_denkhata.data.utils.toJson
-import com.arjun.len_denkhata.ui.screens.CustomerDetailScreen
+import com.arjun.len_denkhata.ui.screens.monthbook.AddMonthBookTransactionScreen
+import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookScreen
+import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
+import com.arjun.len_denkhata.ui.screens.InitialDataLoaderScreen
+import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookCalculatedDataScreen
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 
 sealed class Screen(val route: String) {
@@ -29,7 +32,7 @@ sealed class Screen(val route: String) {
     object Customer : Screen("customer")
     object Supplier : Screen("supplier")
     object More : Screen("more")
-    object CustomerDetail: Screen("customerDetail")
+    object CustomerDetail : Screen("customerDetail")
     object CustomerTransaction : Screen("customerTransaction/{customerId}") {
         fun createRoute(customerId: String) = "customerTransaction/$customerId"
     }
@@ -48,13 +51,24 @@ sealed class Screen(val route: String) {
             customerTransaction: CustomerTransactionEntity? = null
         ) = "transactionEntry&customerId=${customerId}&transactionType=$transactionType&isEditing=$isEditing&customerTransaction=${customerTransaction?.toJson()}"
     }
-}
 
-@Composable
+    object MonthBook : Screen("month_book")
+    object AddIncome : Screen("add_income")
+    object AddExpense : Screen("add_expense")
+    object MonthBookCalculatedData : Screen("month_book_calculated_data")
+
+    object EditMonthBookTransaction : Screen(
+        "edit_month_book_transaction&transactionType={transactionType}&transactionId={transactionId}"
+    ) {
+        fun createRoute(
+            transactionType: String, // "income" or "expense"
+            transactionId: Long
+        ) = "edit_month_book_transaction&transactionType=$transactionType&transactionId=$transactionId"
+    }
+}@Composable
 fun NavigationGraph(navController: NavHostController, startDestination: String) {
 
     var customerViewModel: CustomerViewModel = hiltViewModel()
-    var isLoggedIn = false
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Screen.Login.route) {
@@ -115,8 +129,71 @@ fun NavigationGraph(navController: NavHostController, startDestination: String) 
             }
         }
 
-        composable("customerDetail") {
+        composable(Screen.CustomerDetail.route) {
             CustomerDetailScreen(viewModel = customerViewModel, navController = navController)
+        }
+
+        composable(Screen.MonthBook.route) {
+            val viewModel: MonthBookViewModel = hiltViewModel()
+            MonthBookScreen(navController = navController, viewModel = viewModel)
+        }
+        composable(Screen.AddIncome.route) {
+            val viewModel: MonthBookViewModel = hiltViewModel()
+            AddMonthBookTransactionScreen(
+                navController = navController,
+                transactionType = MonthBookTransactionType.INCOME,
+                viewModel = viewModel,
+                isEditing = false,
+            )
+        }
+        composable(Screen.AddExpense.route) {
+            val viewModel: MonthBookViewModel = hiltViewModel()
+            AddMonthBookTransactionScreen(
+                navController = navController,
+                transactionType = MonthBookTransactionType.EXPENSE,
+                viewModel = viewModel,
+                isEditing = false,
+            )
+        }
+        composable(
+            route = Screen.EditMonthBookTransaction.route,
+            arguments = listOf(
+                navArgument("transactionType") { type = NavType.StringType },
+                navArgument("transactionId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val transactionTypeString = backStackEntry.arguments?.getString("transactionType") ?: ""
+            val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: 0L
+
+            val transactionType = when (transactionTypeString.lowercase()) {
+                "income" -> MonthBookTransactionType.INCOME
+                "expense" -> MonthBookTransactionType.EXPENSE
+                else -> MonthBookTransactionType.INCOME // Default
+            }
+
+            val viewModel: MonthBookViewModel = hiltViewModel()
+
+            AddMonthBookTransactionScreen(
+                navController = navController,
+                transactionType = transactionType,
+                viewModel = viewModel,
+                isEditing = true,
+                transactionId = transactionId // Pass transactionId
+            )
+        }
+        composable(Screen.MonthBookCalculatedData.route) {
+            MonthBookCalculatedDataScreen(navController = navController)
+        }
+
+        composable("initial_data_loader") {
+            InitialDataLoaderScreen(
+                navController = navController,
+//                navigateToCustomerScreen = {
+//                    navController.navigate(Screen.Customer.route) {
+//                        popUpTo("initial_data_loader") { inclusive = true }
+//                    }
+//                }
+            )
         }
     }
 }

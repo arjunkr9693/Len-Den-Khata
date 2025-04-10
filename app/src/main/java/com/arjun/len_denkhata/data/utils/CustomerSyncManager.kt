@@ -7,7 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
 import com.arjun.len_denkhata.data.database.SyncStatus
-import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.SyncStatusEntity
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
@@ -18,7 +18,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +25,7 @@ import javax.inject.Singleton
 class CustomerSyncManager @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val customerTransactionDao: CustomerTransactionDao,
-    private val syncStatusDao: SyncStatusDao,
+    private val syncStatusDao: CustomerSyncStatusDao,
     @ApplicationContext private val applicationContext: Context,
     private val coroutineScope: CoroutineScope,
     private val applicationScope: CoroutineScope

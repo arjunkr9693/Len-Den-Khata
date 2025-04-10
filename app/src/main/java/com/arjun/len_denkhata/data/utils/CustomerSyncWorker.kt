@@ -6,7 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.arjun.len_denkhata.data.database.SyncStatus
-import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.fireStoreCustomerTransactionPath
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,7 +15,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 
 @HiltWorker
@@ -24,7 +23,7 @@ class CustomerSyncWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val firestore: FirebaseFirestore,
     private val customerTransactionDao: CustomerTransactionDao,
-    private val syncStatusDao: SyncStatusDao
+    private val syncStatusDao: CustomerSyncStatusDao
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = coroutineScope {

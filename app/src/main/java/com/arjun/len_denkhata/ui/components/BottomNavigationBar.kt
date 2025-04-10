@@ -37,6 +37,11 @@ fun BottomNavigationBar(navController: NavHostController) {
                         Screen.TransactionEntry -> TODO()
                         Screen.Login -> TODO()
                         Screen.CustomerDetail -> TODO()
+                        Screen.MonthBook -> TODO()
+                        Screen.MonthBookCalculatedData -> TODO()
+                        Screen.AddExpense -> TODO()
+                        Screen.AddIncome -> TODO()
+                        Screen.EditMonthBookTransaction -> TODO()
                     }
                 },
                 label = { Text(screen.route) },

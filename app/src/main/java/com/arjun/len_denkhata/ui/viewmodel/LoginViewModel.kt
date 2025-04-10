@@ -24,9 +24,7 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             val loggedIn = loginRepository.login(mobileNumber)
             if (loggedIn != null) {
-                navController.navigate(Screen.Customer.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
-                }
+                navController.navigate("initial_data_loader")
             } else {
                 // Handle error (e.g., show a toast)
             }

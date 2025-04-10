@@ -2,8 +2,9 @@ package com.arjun.len_denkhata.data.repository.customer
 
 import android.util.Log
 import com.arjun.len_denkhata.data.database.SyncStatus
-import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.SyncStatusEntity
+import com.arjun.len_denkhata.data.database.customer.CustomerEntity
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.utils.CustomerSyncManager
@@ -21,7 +22,7 @@ class CustomerTransactionRepository @Inject constructor(
     private val customerTransactionDao: CustomerTransactionDao,
     private val firestore: FirebaseFirestore,
     private val customerSyncManager: CustomerSyncManager,
-    private val syncStatusDao: SyncStatusDao,
+    private val syncStatusDao: CustomerSyncStatusDao,
     private val customerRepository: CustomerRepository
 ) {
 
@@ -43,13 +44,16 @@ class CustomerTransactionRepository @Inject constructor(
         }
     }
 
-    suspend fun insertCustomerTransaction(transaction: CustomerTransactionEntity) {
+    suspend fun insertCustomerTransaction(
+        transaction: CustomerTransactionEntity,
+        initialStoringWhenLoggin: Boolean = false
+    ) {
         try {
             val transactionId = customerTransactionDao.insert(transaction)
             val insertedTransaction = transaction.copy(id = transactionId)
             _allTransactions.value += insertedTransaction
             customerRepository.updateCustomerBalance(insertedTransaction.customerId, insertedTransaction.amount, insertedTransaction.isCredit)
-            if (insertedTransaction.isMadeByOwner) {
+            if (insertedTransaction.isMadeByOwner && !initialStoringWhenLoggin) {
                 customerSyncManager.enqueueTransactionForUpload(insertedTransaction)
             }
         } catch (e: Exception) {

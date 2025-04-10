@@ -2,9 +2,7 @@ package com.arjun.len_denkhata.data.utils
 
 import android.util.Log
 import androidx.room.Transaction
-import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.database.customer.CustomerEntity
-import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository

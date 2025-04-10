@@ -1,4 +1,4 @@
-package com.arjun.len_denkhata.ui.screens
+package com.arjun.len_denkhata.ui.screens.login
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

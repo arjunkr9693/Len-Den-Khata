@@ -1,5 +1,7 @@
-package com.arjun.len_denkhata.ui.screens
+package com.arjun.len_denkhata.ui.screens.customer
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -29,7 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
-import com.arjun.len_denkhata.ui.components.CustomerTopBar
+import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -84,11 +87,15 @@ fun CustomerTransactionScreen(
     Scaffold(
         topBar = {
             customer?.let {
-                CustomerTopBar(
-                    customerName = it.name,
-                    customerPhoneNUmber = it.phone,
+                CustomTopBarWithIcon(
+                    title = it.name,
                     onBackClick = { navController.popBackStack() },
-                    onTextClick = { navController.navigate("customerDetail") }
+                    onTitleClick = { navController.navigate("customerDetail") },
+                    rightIcon = Icons.Default.Call,
+                    onRightIconClick = {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${it.phone}"))
+                        context.startActivity(intent)
+                    }
                 )
             }
         },

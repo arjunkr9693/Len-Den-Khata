@@ -1,4 +1,4 @@
-package com.arjun.len_denkhata.ui.screens
+package com.arjun.len_denkhata.ui.screens.customer
 
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +32,7 @@ import com.arjun.len_denkhata.data.utils.CountryCodeDialog
 import com.arjun.len_denkhata.data.utils.UserSession
 import com.arjun.len_denkhata.ui.components.CustomerListItem
 import com.arjun.len_denkhata.ui.components.RupeeCardRow
+import com.arjun.len_denkhata.ui.screens.TopAppBar
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 
 
@@ -86,7 +86,7 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
 
 
     Scaffold(
-        topBar = { TopAppBar("Customers") },
+        topBar = { TopAppBar("Customers", navController = navController) },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 UserSession.isContactPickerShowing = true

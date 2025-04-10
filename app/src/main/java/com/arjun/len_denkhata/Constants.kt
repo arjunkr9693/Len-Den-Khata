@@ -1,3 +1,4 @@
 package com.arjun.len_denkhata
 
-val fireStoreCustomerTransactionPath = "customerTransactions"
+const val fireStoreCustomerTransactionPath = "customerTransactions"
+const val fireStoreMonthBookTransactionPath = "monthBookTransactions"

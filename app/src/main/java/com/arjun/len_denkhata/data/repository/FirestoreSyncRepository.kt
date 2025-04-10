@@ -2,7 +2,7 @@ package com.arjun.len_denkhata.data.repository
 
 import android.util.Log
 import com.arjun.len_denkhata.data.database.FirestoreTransaction
-import com.arjun.len_denkhata.data.database.SyncStatusDao
+import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.utils.NotificationHelper
 import com.arjun.len_denkhata.data.utils.TransactionMapper
@@ -21,7 +21,7 @@ import javax.inject.Singleton
 class FirestoreSyncRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val transactionDao: CustomerTransactionDao,
-    private val syncStatusDao: SyncStatusDao,
+    private val syncStatusDao: CustomerSyncStatusDao,
     private val notificationHelper: NotificationHelper,
     private val mapper: TransactionMapper,
     private val transactionProcessor: TransactionProcessor

@@ -1,4 +1,4 @@
-package com.arjun.len_denkhata.ui.screens
+package com.arjun.len_denkhata.ui.screens.customer
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
