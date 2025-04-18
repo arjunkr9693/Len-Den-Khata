@@ -1,11 +1,11 @@
 package com.arjun.len_denkhata.ui.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.database.customer.CustomerEntity
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
@@ -18,6 +18,7 @@ import com.arjun.len_denkhata.data.utils.UserSession
 import com.arjun.len_denkhata.fireStoreCustomerTransactionPath
 import com.arjun.len_denkhata.fireStoreMonthBookTransactionPath
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -36,7 +37,8 @@ class InitialDataLoaderViewModel @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val customerTransactionRepository: CustomerTransactionRepository,
     private val monthBookRepository: MonthBookRepository,
-    private val customerRepository: CustomerRepository
+    private val customerRepository: CustomerRepository,
+    private val context: Context
 ) : ViewModel() {
 
     private val _loadingState = mutableStateOf(InitialLoadingState.LOADING)
@@ -63,8 +65,11 @@ class InitialDataLoaderViewModel @Inject constructor(
             processAndStoreMonthBookTransactions(monthBookTransactions)
             Log.d("InitialData", "Month book transactions processed and stored")
 
+
             _loadingState.value = InitialLoadingState.LOADED
             Log.d("InitialData", "Loading state set to LOADED")
+
+            context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE).edit().putBoolean("initialDataDownloaded", true).apply()
 
         } catch (e: Exception) {
             _errorMessage.value = "Failed to load initial data: ${e.localizedMessage}"
@@ -79,7 +84,9 @@ class InitialDataLoaderViewModel @Inject constructor(
                 .whereEqualTo("ownerId", ownerId)
                 .get()
                 .await()
-            snapshot.documents.map { it.data.orEmpty() + ("firestoreId" to it.id) }
+            val fetchedData = snapshot.documents.map { it.data.orEmpty() + ("firestoreId" to it.id) }
+            Log.d("InitialData", "Fetched customer transactions raw data: $fetchedData")
+            fetchedData
         } catch (e: Exception) {
             Log.e("InitialData", "Error fetching customer transactions: ${e.localizedMessage}")
             emptyList()
@@ -93,7 +100,9 @@ class InitialDataLoaderViewModel @Inject constructor(
                 .whereEqualTo("ownerId", ownerId)
                 .get()
                 .await()
-            snapshot.documents.map { it.data.orEmpty() + ("firestoreId" to it.id) }
+            val fetchedData = snapshot.documents.map { it.data.orEmpty() + ("firestoreId" to it.id) }
+            Log.d("InitialData", "Fetched month book transactions raw data: $fetchedData")
+            fetchedData
         } catch (e: Exception) {
             Log.e("InitialData", "Error fetching month book transactions: ${e.localizedMessage}")
             emptyList()
@@ -119,13 +128,23 @@ class InitialDataLoaderViewModel @Inject constructor(
             val ownerId = data["ownerId"] as? String ?: return@forEach
             val customerId = data["customerId"] as? String ?: return@forEach
             val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
-            val dateLong = data["date"] as? Long ?: 0L
-            val date = Date(dateLong)
+
+            // Safely handle the 'date' field, assuming it might be a Timestamp or a Long
+            val date: Date = when (val dateField = data["date"]) {
+                is Timestamp -> dateField.toDate()
+                is Long -> Date(dateField)
+                else -> {
+                    Log.w("InitialData", "Unexpected data type for 'date' field: ${dateField?.javaClass?.name}. Defaulting to current time.")
+                    Date() // Or handle the error as needed
+                }
+            }
+
             val isCredit = data["credit"] as? Boolean ?: false
             val description = data["description"] as? String ?: ""
             val isMadeByOwner = data["madeByOwner"] as? Boolean ?: false
-            val timestamp = data["timestamp"] as? Long ?: 0L
+            val timestamp = data["timestamp"] as? Long ?: System.currentTimeMillis() // Provide a default if missing
 
+            Log.d("InitialData", "Date after processing: $date")
             customerTransactionRepository.insertCustomerTransaction(
                 CustomerTransactionEntity(
                     firestoreId = firestoreId,
@@ -152,7 +171,7 @@ class InitialDataLoaderViewModel @Inject constructor(
             val firestoreId = data["firestoreId"] as? String ?: continue
             val ownerId = data["ownerId"] as? String ?: continue
             val amount = (data["amount"] as? Number)?.toDouble() ?: 0.0
-            val timestamp = data["timestamp"] as? Long ?: 0L
+            val timestamp = data["timestamp"] as? Long ?: System.currentTimeMillis() // Provide a default
             val typeString = data["type"] as? String ?: ""
             val type = try {
                 enumValueOf<MonthBookTransactionType>(typeString.uppercase())

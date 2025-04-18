@@ -7,6 +7,7 @@ import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransa
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Date
 import javax.inject.Inject
@@ -30,7 +31,7 @@ class TransactionProcessor @Inject constructor(
         isEdited: Boolean = false,
         editedOn: Long? = null,
         isUpdate: Boolean = false
-    ) {
+    ): Boolean {
         // 1. Ensure owner exists as customer in local DB
         if (!customerRepository.customerExists(ownerId)) {
             customerRepository.insertCustomer(
@@ -86,6 +87,8 @@ class TransactionProcessor @Inject constructor(
 
             }
         }
+
+        return true
     }
 
     @Transaction

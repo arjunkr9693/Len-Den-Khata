@@ -37,7 +37,6 @@ import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-
 @Composable
 fun CustomerTransactionScreen(
     navController: NavHostController,
@@ -48,40 +47,10 @@ fun CustomerTransactionScreen(
     val customer by viewModel.selectedCustomer.collectAsState()
     val context = LocalContext.current
 
-    // Create and remember the LazyListState
-    val listState = rememberLazyListState()
-
-    // Track if we should auto-scroll to the top
-    var shouldAutoScroll by remember { mutableStateOf(true) }
-
-    // Track the previous transaction count to detect new additions
-    var previousTransactionCount by remember { mutableIntStateOf(0) }
-    val currentTransactionCount = transactions.size
-
-    // Effect to handle auto-scrolling behavior
-    LaunchedEffect(currentTransactionCount) {
-        if (currentTransactionCount > previousTransactionCount) {
-            if (shouldAutoScroll) {
-                // Scroll to the top when new items are added
-                listState.animateScrollToItem(index = 0)
-            }
-            previousTransactionCount = currentTransactionCount
-        }
-    }
-
-    // Effect to detect user scrolling and disable auto-scroll when they scroll down
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
-            // Check if user is not at the top
-            val isAtTop = listState.firstVisibleItemIndex == 0 &&
-                    listState.firstVisibleItemScrollOffset == 0
-            shouldAutoScroll = isAtTop
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadTransactions(customerId)
-        viewModel.loadCustomerBalance(customerId)
+    val groupedTransactions = remember(transactions) {
+        transactions.groupBy {
+            SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(it.date)
+        }.toSortedMap(reverseOrder()) // Ensure dates are in descending order
     }
 
     Scaffold(
@@ -107,18 +76,22 @@ fun CustomerTransactionScreen(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Button(onClick = {
-                    navController.navigate(Screen.TransactionEntry.createRoute(
-                        customerId = customerId,
-                        transactionType = "You Gave"
-                    ))
+                    navController.navigate(
+                        Screen.TransactionEntry.createRoute(
+                            customerId = customerId,
+                            transactionType = "You Gave"
+                        )
+                    )
                 }) {
                     Text("You Gave")
                 }
                 Button(onClick = {
-                    navController.navigate(Screen.TransactionEntry.createRoute(
-                        customerId = customerId,
-                        transactionType = "You Got"
-                    ))
+                    navController.navigate(
+                        Screen.TransactionEntry.createRoute(
+                            customerId = customerId,
+                            transactionType = "You Got"
+                        )
+                    )
                 }) {
                     Text("You Got")
                 }
@@ -147,32 +120,28 @@ fun CustomerTransactionScreen(
             )
 
             LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f),
-                reverseLayout = true // This reverses the scroll direction
+                modifier = Modifier.weight(1f)
             ) {
-                val groupedTransactions = transactions.groupBy {
-                    SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(it.date)
-                }
-
-                // Reverse the order of groups to show recent first
-                val reversedGroups = groupedTransactions.entries
-
-                reversedGroups.forEach { (date, transactionsForDate) ->
+                groupedTransactions.forEach { (date, transactionsForDate) ->
                     item {
-                        Text(
-                            text = date,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            fontWeight = FontWeight.Bold
-                        )
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                            Text(
+                                text = date,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                        }
                     }
-
-                    // Reverse the transactions within each date group
                     items(transactionsForDate) { transaction ->
                         TransactionItem(
-                            transaction,
+                            transaction = transaction,
                             onDelete = { viewModel.deleteTransaction(it, deletedAmount = it.amount) },
                             onEdit = {
                                 navController.navigate(
@@ -190,6 +159,11 @@ fun CustomerTransactionScreen(
             }
         }
     }
+
+    LaunchedEffect(customerId) {
+        viewModel.loadTransactions(customerId)
+        viewModel.loadCustomerBalance(customerId)
+    }
 }
 
 @Composable
@@ -198,7 +172,8 @@ fun TransactionItem(
     onDelete: (CustomerTransactionEntity) -> Unit,
     onEdit: (CustomerTransactionEntity) -> Unit,
 ) {
-    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
+    val formattedTimestamp =
+        SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
     var expanded by remember { mutableStateOf(false) } // State to manage dropdown menu visibility
 
     // Determine if the transaction is from the owner or another user
@@ -213,7 +188,6 @@ fun TransactionItem(
     // Text for "You gave" or "You got"
     val transactionTypeText = if (isCredit) "You got" else "You gave"
 
-
     // Alignment based on owner or other user
     val alignment = if (isMadeByOwner) Arrangement.End else Arrangement.Start
 
@@ -221,21 +195,26 @@ fun TransactionItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp, horizontal = 16.dp)
-            .clickable {  },
+            .clickable { },
         horizontalArrangement = alignment
     ) {
         Card(
             modifier = Modifier
-                .widthIn( max = 350.dp) // Limit width for better readability
+                .widthIn(max = 350.dp)
+                .clickable {  }, // Limit width for better readability
+            elevation = CardDefaults.cardElevation(5.dp)
         ) {
-            Row (modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundColor, shape = RoundedCornerShape(8.dp)),
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor, shape = RoundedCornerShape(8.dp)),
                 horizontalArrangement = Arrangement.Absolute.SpaceBetween
-            ){
-                Column(modifier = Modifier
-                    .fillMaxSize(0.7f)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)) {
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize(0.7f)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
                     Text(
                         text = formattedTimestamp,
                         fontSize = 12.sp,
@@ -261,8 +240,10 @@ fun TransactionItem(
                         Row(
                             modifier = Modifier
                         ) {
-                            IconButton(onClick = { expanded = true },
-                                Modifier.fillMaxSize(0.2f)) {
+                            IconButton(
+                                onClick = { expanded = true },
+                                Modifier.fillMaxSize(0.2f)
+                            ) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "Options")
                             }
 
@@ -301,16 +282,11 @@ fun TransactionItem(
                     // "You gave" or "You got" text
                     Text(
                         text = transactionTypeText,
-                        fontSize = 6.sp,
+                        fontSize = 10.sp, // Increased font size for better visibility
                         color = Color.Gray,
                     )
                 }
             }
-
-            // Amount and transaction type text
-
         }
-
-
     }
 }

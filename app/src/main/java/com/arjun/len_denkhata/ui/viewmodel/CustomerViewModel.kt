@@ -40,8 +40,6 @@ class CustomerViewModel @Inject constructor(
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers
 
-    val transactions: StateFlow<List<CustomerTransactionEntity>> = customerTransactionRepository.allTransactions
-
     private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
     val selectedCustomer: StateFlow<CustomerEntity?> = _selectedCustomer
 

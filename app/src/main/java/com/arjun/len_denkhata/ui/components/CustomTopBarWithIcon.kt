@@ -28,7 +28,7 @@ fun CustomTopBarWithIcon(
     title: String, // Name of the customer
     onBackClick: () -> Unit, // Callback for back navigation
     modifier: Modifier = Modifier,
-    onTitleClick: () -> Unit,
+    onTitleClick: () -> Unit = {},
     rightIcon: ImageVector? = null, // New parameter for the right icon
     onRightIconClick: () -> Unit = {} // Callback for the right icon click (optional)
 ) {

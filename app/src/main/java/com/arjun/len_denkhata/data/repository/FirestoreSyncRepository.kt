@@ -1,6 +1,7 @@
 package com.arjun.len_denkhata.data.repository
 
 import android.util.Log
+import androidx.room.Transaction
 import com.arjun.len_denkhata.data.database.FirestoreTransaction
 import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
@@ -13,7 +14,11 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +41,7 @@ class FirestoreSyncRepository @Inject constructor(
     private var ownerTransactionListener: ListenerRegistration? = null
 
     // Start listening for incoming transactions where current user is the customer
-    fun startIncomingTransactionListener(currentUserId: String) {
+    suspend fun startIncomingTransactionListener(currentUserId: String) {
         stopListening()
         Log.d("FirestoreSync", "Starting incoming transaction listener for user (customer) $currentUserId")
         customerListener = firestore.collection(fireStoreCustomerTransactionPath)
@@ -47,32 +52,57 @@ class FirestoreSyncRepository @Inject constructor(
                     return@addSnapshotListener
                 }
 
-                snapshot?.documentChanges?.forEach { change ->
-                    when (change.type) {
-                        DocumentChange.Type.ADDED -> {
-                            Log.d("Incoming Firebase (customer)", "Received new transaction: ${change.document.data}")
-                            externalScope.launch { processIncomingTransaction(change.document) }
+                runBlocking {
+                    snapshot?.documentChanges?.forEach { change ->
+
+                        when (change.type) {
+                            DocumentChange.Type.ADDED -> {
+                                Log.d("Incoming Firebase (customer)", "Received new transaction: ${change.document.data}")
+                                processIncomingTransaction(change.document)
+                                // Wait for processIncomingTransaction to complete before proceeding
+//                                runBlocking {
+//                                    val job = externalScope.async { processIncomingTransaction(change.document) }
+//                                    job.await()
+//                                }
+                            }
+                            DocumentChange.Type.MODIFIED -> {
+                                Log.d("Incoming Firebase (customer)", "Modified transaction: ${change.document.data}")
+                                processIncomingTransaction(change.document, isUpdate = true)
+                                // Wait for processIncomingTransaction to complete before proceeding
+//                                runBlocking {
+//                                    val job = externalScope.async { processIncomingTransaction(change.document, isUpdate = true) }
+//                                    job.await()
+//                                }
+                            }
+                            DocumentChange.Type.REMOVED -> {
+                                Log.d("Incoming Firebase (customer)", "Removed transaction: ${change.document.data}")
+                                processRemovedTransaction(change.document)
+                                // Wait for processRemovedTransaction to complete before proceeding
+//                                runBlocking {
+//                                    val job = externalScope.async { processRemovedTransaction(change.document) }
+//                                    job.await()
+//                                }
+                            }
+
+
                         }
-                        DocumentChange.Type.MODIFIED -> {
-                            Log.d("Incoming Firebase (customer)", "Modified transaction: ${change.document.data}")
-                            externalScope.launch { processIncomingTransaction(change.document, isUpdate = true) }
-                        }
-                        DocumentChange.Type.REMOVED -> {
-                            Log.d("Incoming Firebase (customer)", "Removed transaction: ${change.document.data}")
-                            externalScope.launch { processRemovedTransaction(change.document) }
-                        }
+                        Log.d("FirestoreSync", "Incoming transaction processed")
                     }
                 }
+
+
             }
     }
 
+    @Transaction
     private suspend fun processIncomingTransaction(document: DocumentSnapshot, isUpdate: Boolean = false) {
         try {
             val firestoreTransaction = document.toObject(FirestoreTransaction::class.java)
                 ?: return
 
             Log.d("FirestoreSync", "${if (isUpdate) "Updating" else "Processing new"} incoming transaction: $firestoreTransaction")
-            transactionProcessor.processIncomingTransaction(
+
+             val completed = transactionProcessor.processIncomingTransaction(
                 firestoreId = document.id,
                 ownerId = firestoreTransaction.ownerId,
                 customerId = firestoreTransaction.customerId,
@@ -86,11 +116,14 @@ class FirestoreSyncRepository @Inject constructor(
                 isUpdate = isUpdate
             )
 
+
+
         } catch (e: Exception) {
             Log.e("FirestoreSync", "Deserialization error during processIncomingTransaction", e)
         }
     }
 
+    @Transaction
     private suspend fun processRemovedTransaction(document: DocumentSnapshot) {
         try {
             val firestoreId = document.id

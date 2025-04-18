@@ -86,13 +86,21 @@ class MainActivity : ComponentActivity() {
             Log.d("ContactsPermission", "READ_CONTACTS permission already granted in MainActivity")
         }
 
+
         enableEdgeToEdge()
         setContent {
             Len_DenKhataTheme {
+
                 var startDestination: String = Screen.Customer.route
                 val user = loginRepository.getUser()
+
+                val isInitialDataDownloaded = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE).getBoolean("initialDataDownloaded", false)
+
                 if (user != null) {
                     UserSession.initialize(user)
+                    if(!isInitialDataDownloaded) {
+                        startDestination = "initial_data_loader"
+                    }
                     LenDenKhataApp(startDestination)
                 } else {
                     startDestination = Screen.Login.route
@@ -146,7 +154,7 @@ fun LenDenKhataApp(startDestination: String) {
 
     Scaffold(
         bottomBar = {
-            if (currentRoute != Screen.Login.route) {
+            if (currentRoute == Screen.Customer.route || currentRoute == Screen.Supplier.route || currentRoute == Screen.More.route) {
                 BottomNavigationBar(navController = navController)
             }
         }

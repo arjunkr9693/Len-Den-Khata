@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.data.repository.customer
 
+import androidx.room.Transaction
 import com.arjun.len_denkhata.data.database.customer.CustomerDao
 import com.arjun.len_denkhata.data.database.customer.CustomerEntity
 import com.arjun.len_denkhata.data.repository.LoginRepository
@@ -78,6 +79,7 @@ class CustomerRepository @Inject constructor(
     }
 
 
+    @Transaction
     suspend fun insertCustomer(customer: CustomerEntity): Long {
 
         return try {
@@ -88,6 +90,7 @@ class CustomerRepository @Inject constructor(
         }
     }
 
+    @Transaction
     suspend fun updateCustomerBalance(customerId: String, amount: Double, isCredit: Boolean, isEditing: Boolean = false) = withContext(
         Dispatchers.IO) {
         val customer = customerDao.getCustomerByIdSync(customerId) ?: return@withContext

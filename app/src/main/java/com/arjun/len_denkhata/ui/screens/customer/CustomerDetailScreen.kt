@@ -11,6 +11,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.Screen
+import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 
 @Composable
@@ -37,65 +39,75 @@ fun CustomerDetailScreen(
     var name by remember { mutableStateOf(customer?.name) }
     var phone by remember { mutableStateOf(customer?.phone) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Name TextField with Save Button
-        OutlinedTextField(
-            value = name!!,
-            onValueChange = { name = it },
-            label = { Text("Name") },
-            trailingIcon = {
-                IconButton(
-                    onClick = {
-                        val updatedCustomer = name?.let { customer?.copy(name = it) }
-                        if (updatedCustomer != null) {
-                            viewModel.updateCustomer(updatedCustomer)
-                        }
-                    }
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = "Save")
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-
-        // Phone TextField
-        OutlinedTextField(
-            value = phone!!,
-            readOnly = true,
-            onValueChange = {},
-            label = { Text("Phone") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-
-        // Overall Balance Text
-        Text(
-            text = "Overall Balance: ${customer?.overallBalance}",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            fontWeight = FontWeight.Bold
-        )
-
-        // Delete Button at the Bottom
-        Button(
-            onClick = {
-                customer?.let { viewModel.deleteCustomer(it) }
-                navController.navigate(Screen.Customer.route)
-                      },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+    Scaffold(
+        topBar = {
+            CustomTopBarWithIcon(
+                title = "Customer Details",
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp) // Horizontal padding of 12.dp
+                .padding(paddingValues)         // Apply vertical padding from Scaffold
         ) {
-            Text("Delete Customer", color = Color.White)
+            // Name TextField with Save Button
+            OutlinedTextField(
+                value = name!!,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            val updatedCustomer = name?.let { customer?.copy(name = it) }
+                            if (updatedCustomer != null) {
+                                viewModel.updateCustomer(updatedCustomer)
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Save")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
+
+            // Phone TextField
+            OutlinedTextField(
+                value = phone!!,
+                readOnly = true,
+                onValueChange = {},
+                label = { Text("Phone") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
+
+            // Overall Balance Text
+            Text(
+                text = "Overall Balance: ${customer?.overallBalance}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                fontWeight = FontWeight.Bold
+            )
+
+            // Delete Button at the Bottom
+            Button(
+                onClick = {
+                    customer?.let { viewModel.deleteCustomer(it) }
+                    navController.navigate(Screen.Customer.route)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Delete Customer", color = Color.White)
+            }
         }
     }
 }
