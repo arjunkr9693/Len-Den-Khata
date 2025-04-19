@@ -15,6 +15,7 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @HiltWorker
@@ -63,14 +64,19 @@ class CustomerSyncWorker @AssistedInject constructor(
                     val transaction = customerTransactionDao.getTransactionById(status.transactionId)
                         ?: continue
 
+                    var firestoreId: String? = null
                     firestore.collection(fireStoreCustomerTransactionPath)
                         .add(transaction).addOnSuccessListener {
+                            firestoreId = it.id
                             Log.d("CustomerSyncWorker", "Successfully uploaded transaction ${transaction.id} (Firestore ID: ${it.id})")
                         }
                         .await()
 
-                    syncStatusDao.markAsUploaded(status.transactionId)
-                    Log.d("CustomerSyncWorker", "Successfully uploaded transaction ${transaction.id}")
+                    if(firestoreId != null) {
+                        customerTransactionDao.update(transaction.copy(firestoreId = firestoreId))
+                        syncStatusDao.markAsUploaded(status.transactionId)
+                        Log.d("CustomerSyncWorker", "Successfully uploaded transaction ${transaction.id}")
+                    }
 
                 } catch (e: Exception) {
                     Log.e("CustomerSyncWorker", "Failed to upload transaction ${status.transactionId}", e)
@@ -93,7 +99,7 @@ class CustomerSyncWorker @AssistedInject constructor(
                     val syncInfo = syncStatusDao.getSyncStatusSync(status.transactionId)
                     if (syncInfo?.isUploaded == true) {
                         firestore.collection(fireStoreCustomerTransactionPath)
-                            .document(transaction.id.toString())
+                            .document(transaction.firestoreId.toString())
                             .update("amount", transaction.amount, "description", transaction.description, "edited", transaction.isEdited, "editedOn", transaction.editedOn)
                             .await()
 
@@ -121,15 +127,19 @@ class CustomerSyncWorker @AssistedInject constructor(
             for (status in pendingDeletes) {
                 try {
                     val syncInfo = syncStatusDao.getSyncStatusSync(status.transactionId)
-                    if (syncInfo?.isUploaded == true) {
-                        firestore.collection(fireStoreCustomerTransactionPath)
-                            .document(status.transactionId.toString())
-                            .delete()
-                            .await()
+                    val transaction = customerTransactionDao.getTransactionById(status.transactionId)
 
-                        syncStatusDao.markAsUploaded(status.transactionId)
-                        customerTransactionDao.deleteTransactionById(status.transactionId)
-                        Log.d("CustomerSyncWorker", "Successfully deleted transaction ${status.transactionId}")
+                    if (syncInfo?.isUploaded == true) {
+                        transaction?.let {
+                            firestore.collection(fireStoreCustomerTransactionPath)
+                                .document(it.firestoreId!!)
+                                .delete()
+                                .await()
+
+                            syncStatusDao.markAsUploaded(status.transactionId)
+                            customerTransactionDao.deleteTransactionById(status.transactionId)
+                            Log.d("CustomerSyncWorker", "Successfully deleted transaction ${status.transactionId}")
+                        }
                     } else {
                         Log.w(
                             "CustomerSyncWorker",

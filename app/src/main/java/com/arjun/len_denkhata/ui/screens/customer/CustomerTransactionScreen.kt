@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,7 +50,7 @@ fun CustomerTransactionScreen(
 
     val groupedTransactions = remember(transactions) {
         transactions.groupBy {
-            SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(it.date)
+            SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(it.timestamp)
         }.toSortedMap(reverseOrder()) // Ensure dates are in descending order
     }
 
@@ -172,6 +173,7 @@ fun TransactionItem(
     onDelete: (CustomerTransactionEntity) -> Unit,
     onEdit: (CustomerTransactionEntity) -> Unit,
 ) {
+
     val formattedTimestamp =
         SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
     var expanded by remember { mutableStateOf(false) } // State to manage dropdown menu visibility
@@ -212,12 +214,13 @@ fun TransactionItem(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize(0.7f)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.7f)
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp)
                 ) {
                     Text(
                         text = formattedTimestamp,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         color = Color.Gray
                     )
 
@@ -226,14 +229,24 @@ fun TransactionItem(
                         Text(
                             text = it,
                             fontSize = 14.sp,
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.fillMaxHeight(),
+                            textAlign = TextAlign.Start
                         )
                     }
+
+                    if (transaction.isEdited && transaction.editedOn != null) {
+                        val formattedEditedOn = SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault()).format(Date(transaction.editedOn))
+                        Text(
+                            text = "Edited on: $formattedEditedOn",
+                            fontSize = 8.sp,
+                            color = Color.Gray
+                        )
+                    }
+
                 }
                 Column(
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.fillMaxHeight().padding(end = 8.dp).weight(1f),
                     horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Menu bar at the top right (only for owner's transactions)
                     if (isMadeByOwner) {
@@ -276,13 +289,15 @@ fun TransactionItem(
                     Text(
                         text = "₹${"%.2f".format(transaction.amount)}",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxSize().padding(top = if(!isMadeByOwner) 8.dp else 0.dp),
+                        textAlign = TextAlign.End
                     )
 
                     // "You gave" or "You got" text
                     Text(
                         text = transactionTypeText,
-                        fontSize = 10.sp, // Increased font size for better visibility
+                        fontSize = 8.sp, // Increased font size for better visibility
                         color = Color.Gray,
                     )
                 }

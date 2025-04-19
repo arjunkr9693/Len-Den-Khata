@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
@@ -60,16 +61,35 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
     fun addTransaction(
         amount: Double,
         description: String,
+        date: Date,
         type: MonthBookTransactionType, // Using MonthBookTransactionType
         monthBookExpenseCategory: MonthBookExpenseCategory? = null // Using MonthBookExpenseCategory
     ) {
         viewModelScope.launch {
+            val calendar = Calendar.getInstance()
+            calendar.timeInMillis = System.currentTimeMillis()
+
+            val hourOfDay = calendar.get(Calendar.HOUR_OF_DAY)
+            val minute = calendar.get(Calendar.MINUTE)
+            val second = calendar.get(Calendar.SECOND)
+            val millisecond = calendar.get(Calendar.MILLISECOND)
+
+            val dateCalendar = Calendar.getInstance()
+            dateCalendar.time = date
+
+            dateCalendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            dateCalendar.set(Calendar.MINUTE, minute)
+            dateCalendar.set(Calendar.SECOND, second)
+            dateCalendar.set(Calendar.MILLISECOND, millisecond)
+
+            val mergedTimestamp = dateCalendar.timeInMillis
+
             val newTransaction = MonthBookTransactionEntity(
                 amount = amount,
                 description = description,
                 type = type,
                 expenseCategory = monthBookExpenseCategory,
-                timestamp = System.currentTimeMillis()
+                timestamp = mergedTimestamp
             )
             repository.insertTransaction(newTransaction)
         }
@@ -79,17 +99,37 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
         existingTransaction: MonthBookTransactionEntity,
         amount: Double,
         description: String,
+        date: Date,
         type: MonthBookTransactionType, // Using MonthBookTransactionType
         monthBookExpenseCategory: MonthBookExpenseCategory? = null // Using MonthBookExpenseCategory
     ) {
         viewModelScope.launch {
+            val calendar = Calendar.getInstance()
+            calendar.timeInMillis = System.currentTimeMillis()
+
+            val hourOfDay = calendar.get(Calendar.HOUR_OF_DAY)
+            val minute = calendar.get(Calendar.MINUTE)
+            val second = calendar.get(Calendar.SECOND)
+            val millisecond = calendar.get(Calendar.MILLISECOND)
+
+            val dateCalendar = Calendar.getInstance()
+            dateCalendar.time = date
+
+            dateCalendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            dateCalendar.set(Calendar.MINUTE, minute)
+            dateCalendar.set(Calendar.SECOND, second)
+            dateCalendar.set(Calendar.MILLISECOND, millisecond)
+
+            val mergedTimestamp = dateCalendar.timeInMillis
+
             val updatedTransaction = existingTransaction.copy(
                 amount = amount,
                 description = description,
                 type = type,
                 expenseCategory = monthBookExpenseCategory,
                 edited = true,
-                editedOn = System.currentTimeMillis()
+                editedOn = System.currentTimeMillis(),
+                timestamp = mergedTimestamp // Using the merged timestamp for the main timestamp as well
             )
             repository.updateTransaction(updatedTransaction) // Assuming OnConflictStrategy.REPLACE in DAO
         }

@@ -62,15 +62,16 @@ class MonthBookSyncWorker @AssistedInject constructor(
                     val transaction = monthBookTransactionDao.getTransactionByIdOnce(status.transactionId)
                         ?: continue
 
-                    var isUploaded = false
+                    var firestoreId: String? = null
                     firestore.collection(fireStoreMonthBookTransactionPath)
                         .add(transaction).addOnSuccessListener {
                             Log.d("MonthBookSyncWorker", "Successfully uploaded transaction ${transaction.id} (Firestore ID: ${it.id})")
-                            isUploaded = true
+                            firestoreId = it.id
                         }
                         .await()
 
-                    if (isUploaded) {
+                    firestoreId?.let{
+                        monthBookTransactionDao.updateTransaction(transaction.copy(firebaseId = firestoreId))
                         monthBookSyncStatusDao.markAsUploaded(status.transactionId)
                         Log.d("MonthBookSyncWorker", "Successfully uploaded transaction ${transaction.id}")
                     }
@@ -97,7 +98,7 @@ class MonthBookSyncWorker @AssistedInject constructor(
                     var isUpdated = false
                     if (syncInfo?.isUploaded == true) {
                         firestore.collection(fireStoreMonthBookTransactionPath)
-                            .document(transaction.id.toString()) // Assuming transaction.id can be used as Firestore doc ID if set after upload
+                            .document(transaction.firebaseId!!) // Assuming transaction.id can be used as Firestore doc ID if set after upload
                             .update(
                                 "amount", transaction.amount,
                                 "description", transaction.description,
@@ -136,11 +137,12 @@ class MonthBookSyncWorker @AssistedInject constructor(
             for (status in pendingDeletes) {
                 try {
                     val syncInfo = monthBookSyncStatusDao.getSyncStatusSync(status.transactionId)
+                    val firestoreId = monthBookTransactionDao.getTransactionByIdOnce(status.transactionId)?.firebaseId
 
                     var isDeleted = false
-                    if (syncInfo?.isUploaded == true) {
+                    if (syncInfo?.isUploaded == true && firestoreId != null) {
                         firestore.collection(fireStoreMonthBookTransactionPath)
-                            .document(status.transactionId.toString()) // Assuming transaction.id can be used as Firestore doc ID
+                            .document(firestoreId) // Assuming transaction.id can be used as Firestore doc ID
                             .delete()
                             .addOnSuccessListener {
                                 isDeleted = true

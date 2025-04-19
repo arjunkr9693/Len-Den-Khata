@@ -40,7 +40,8 @@ class CustomerSyncManager @Inject constructor(
     }
 
     private fun registerNetworkCallback() {
-        val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager =
+            applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
@@ -73,7 +74,13 @@ class CustomerSyncManager @Inject constructor(
 
     fun enqueueTransactionForUpload(transaction: CustomerTransactionEntity) {
         coroutineScope.launch(Dispatchers.IO) {
-            syncStatusDao.insert(SyncStatusEntity(transactionId = transaction.id, syncStatus = SyncStatus.PENDING_UPLOAD, isUploaded = false))
+            syncStatusDao.insert(
+                SyncStatusEntity(
+                    transactionId = transaction.id,
+                    syncStatus = SyncStatus.PENDING_UPLOAD,
+                    isUploaded = false
+                )
+            )
             if (isNetworkAvailable) {
                 performUpload(transaction)
             } else {
@@ -86,7 +93,13 @@ class CustomerSyncManager @Inject constructor(
         coroutineScope.launch(Dispatchers.IO) {
             val existingStatus = syncStatusDao.getSyncStatusSync(transaction.id)
             if (existingStatus == null) {
-                syncStatusDao.insert(SyncStatusEntity(transactionId = transaction.id, syncStatus = SyncStatus.PENDING_UPLOAD, isUploaded = false))
+                syncStatusDao.insert(
+                    SyncStatusEntity(
+                        transactionId = transaction.id,
+                        syncStatus = SyncStatus.PENDING_UPLOAD,
+                        isUploaded = false
+                    )
+                )
             } else if (existingStatus.syncStatus != SyncStatus.PENDING_DELETE) {
                 syncStatusDao.update(existingStatus.copy(syncStatus = SyncStatus.PENDING_UPDATE))
             }
@@ -102,10 +115,19 @@ class CustomerSyncManager @Inject constructor(
         coroutineScope.launch(Dispatchers.IO) {
             val existingStatus = syncStatusDao.getSyncStatusSync(transactionId)
             if (existingStatus == null || existingStatus.syncStatus != SyncStatus.PENDING_UPLOAD) {
-                syncStatusDao.insert(SyncStatusEntity(transactionId = transactionId, syncStatus = SyncStatus.PENDING_DELETE, isUploaded = existingStatus?.isUploaded ?: false))
+                syncStatusDao.insert(
+                    SyncStatusEntity(
+                        transactionId = transactionId,
+                        syncStatus = SyncStatus.PENDING_DELETE,
+                        isUploaded = existingStatus?.isUploaded ?: false
+                    )
+                )
             } else {
                 syncStatusDao.removeSyncStatus(transactionId)
-                Log.d("SyncManager", "Delete requested for not-yet-uploaded transaction $transactionId. Removed from pending uploads.")
+                Log.d(
+                    "SyncManager",
+                    "Delete requested for not-yet-uploaded transaction $transactionId. Removed from pending uploads."
+                )
                 return@launch // No need to sync or enqueue worker
             }
             if (isNetworkAvailable) {
@@ -125,14 +147,24 @@ class CustomerSyncManager @Inject constructor(
                 .add(transaction)
                 .addOnSuccessListener {
                     firebaseId = it.id
-                    Log.d("SyncManager", "Successfully uploaded transaction ${transaction.id} (Firestore ID: $firebaseId)")
+                    Log.d(
+                        "SyncManager",
+                        "Successfully uploaded transaction ${transaction.id} (Firestore ID: $firebaseId)"
+                    )
                 }
                 .await()
 
             firebaseId?.let {
                 customerTransactionDao.update(transaction.copy(firestoreId = firebaseId))
+                syncStatusDao.update(
+                    SyncStatusEntity(
+                        transactionId = transaction.id,
+                        syncStatus = SyncStatus.UPLOADED,
+                        isUploaded = true
+                    )
+                )
             }
-            syncStatusDao.update(SyncStatusEntity(transactionId = transaction.id, syncStatus = SyncStatus.UPLOADED, isUploaded = true))
+
         } catch (e: Exception) {
             Log.e("SyncManager", "Failed to upload transaction ${transaction.id}", e)
             // Keep the PENDING_UPLOAD status for the worker to handle
@@ -141,14 +173,26 @@ class CustomerSyncManager @Inject constructor(
 
     private suspend fun performUpdate(transaction: CustomerTransactionEntity) {
         try {
-            val firestoreId = getFirestoreDocumentId(transaction)
+            val firestoreId = transaction.firestoreId
             firestoreId?.let {
                 firestore.collection(fireStoreCustomerTransactionPath)
                     .document(it)
-                    .update("amount", transaction.amount, "description", transaction.description, "edited", transaction.isEdited, "editedOn", transaction.editedOn)
+                    .update(
+                        "amount",
+                        transaction.amount,
+                        "description",
+                        transaction.description,
+                        "edited",
+                        transaction.isEdited,
+                        "editedOn",
+                        transaction.editedOn
+                    )
                     .await()
                 syncStatusDao.markAsUploaded(transaction.id)
-                Log.d("SyncManager", "Successfully updated transaction ${transaction.id} (Firestore ID: $it)")
+                Log.d(
+                    "SyncManager",
+                    "Successfully updated transaction ${transaction.id} (Firestore ID: $it)"
+                )
             } ?: Log.w("SyncManager", "Firestore ID not found for update: ${transaction.id}")
         } catch (e: Exception) {
             Log.e("SyncManager", "Failed to update transaction ${transaction.id}", e)
@@ -158,7 +202,7 @@ class CustomerSyncManager @Inject constructor(
 
     private suspend fun performDelete(transactionId: Long) {
         try {
-            val firestoreId = getFirestoreDocumentId(customerTransactionDao.getTransactionById(transactionId))
+            val firestoreId = customerTransactionDao.getTransactionById(transactionId)?.firestoreId
             firestoreId?.let {
                 firestore.collection(fireStoreCustomerTransactionPath)
                     .document(it)
@@ -166,32 +210,15 @@ class CustomerSyncManager @Inject constructor(
                     .await()
                 syncStatusDao.removeSyncStatus(transactionId)
                 customerTransactionDao.deleteTransactionById(transactionId)
-                Log.d("SyncManager", "Successfully deleted transaction ${transactionId} (Firestore ID: $it)")
-            } ?: Log.w("SyncManager", "Firestore ID not found for delete: ${transactionId}")
+                Log.d(
+                    "SyncManager",
+                    "Successfully deleted transaction $transactionId (Firestore ID: $it)"
+                )
+            } ?: Log.w("SyncManager", "Firestore ID not found for delete: $transactionId")
         } catch (e: Exception) {
-            Log.e("SyncManager", "Failed to delete transaction ${transactionId}", e)
+            Log.e("SyncManager", "Failed to delete transaction $transactionId", e)
             // Keep the PENDING_DELETE status for the worker to handle
         }
     }
 
-    // --- Helper Functions ---
-
-    private suspend fun getFirestoreDocumentId(transaction: CustomerTransactionEntity?): String? {
-        if (transaction == null) return null
-        return try {
-            val querySnapshot = firestore.collection(fireStoreCustomerTransactionPath)
-                .whereEqualTo("ownerId", transaction.ownerId)
-                .whereEqualTo("id", transaction.id)
-                .whereEqualTo("timestamp", transaction.timestamp)
-                .get()
-                .await()
-            if (!querySnapshot.isEmpty) {
-                querySnapshot.documents[0].id
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("SyncManager", "Error getting Firestore document ID: ${e.message}")
-            null
-        }
-    }}
+}

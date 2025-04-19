@@ -29,7 +29,6 @@ class MonthBookSyncManager @Inject constructor(
     private val monthBookSyncStatusDao: MonthBookSyncStatusDao,
     @ApplicationContext private val applicationContext: Context,
     private val coroutineScope: CoroutineScope,
-    private val applicationScope: CoroutineScope // Consider if you really need this
 ) {
 
     private var isNetworkAvailable = NetworkUtils.isInternetAvailable(applicationContext)
@@ -80,7 +79,9 @@ class MonthBookSyncManager @Inject constructor(
         }
     }
 
-    fun enqueueTransactionForUpdate(transaction: MonthBookTransactionEntity) {
+    fun enqueueTransactionForUpdate(
+        transaction: MonthBookTransactionEntity,
+    ) {
         coroutineScope.launch(Dispatchers.IO) {
             val existingStatus = monthBookSyncStatusDao.getSyncStatusSync(transaction.id)
             if (existingStatus == null) {
@@ -127,8 +128,8 @@ class MonthBookSyncManager @Inject constructor(
 
             firebaseId?.let {
                 monthBookTransactionDao.updateTransaction(transaction.copy(firebaseId = firebaseId))
+                monthBookSyncStatusDao.update(MonthBookSyncStatusEntity(transactionId = transaction.id, syncStatus = MonthBookSyncStatus.UPLOADED, isUploaded = true))
             }
-            monthBookSyncStatusDao.update(MonthBookSyncStatusEntity(transactionId = transaction.id, syncStatus = MonthBookSyncStatus.UPLOADED, isUploaded = true))
         } catch (e: Exception) {
             Log.e("MonthBookSyncManager", "Failed to upload transaction ${transaction.id}", e)
             // Keep the PENDING_UPLOAD status for the worker to handle
@@ -137,7 +138,7 @@ class MonthBookSyncManager @Inject constructor(
 
     private suspend fun performUpdate(transaction: MonthBookTransactionEntity) {
         try {
-            val firestoreId = getFirestoreDocumentId(transaction)
+            val firestoreId = transaction.firebaseId
             firestoreId?.let {
                 firestore.collection(fireStoreMonthBookTransactionPath)
                     .document(it)
@@ -146,6 +147,7 @@ class MonthBookSyncManager @Inject constructor(
                         "description", transaction.description,
                         "type", transaction.type.name,
                         "expenseCategory", transaction.expenseCategory?.name,
+                        "timestamp", transaction.timestamp,
                         "edited", transaction.edited,
                         "editedOn", transaction.editedOn
                     )
@@ -161,7 +163,7 @@ class MonthBookSyncManager @Inject constructor(
 
     private suspend fun performDelete(transactionId: Long) {
         try {
-            val firestoreId = getFirestoreDocumentId(monthBookTransactionDao.getTransactionByIdOnce(transactionId))
+            val firestoreId = monthBookTransactionDao.getTransactionByIdOnce(transactionId)?.firebaseId
             firestoreId?.let {
                 firestore.collection(fireStoreMonthBookTransactionPath)
                     .document(it)
@@ -169,30 +171,11 @@ class MonthBookSyncManager @Inject constructor(
                     .await()
                 monthBookSyncStatusDao.removeSyncStatus(transactionId)
                 monthBookTransactionDao.deleteTransactionById(transactionId)
-                Log.d("MonthBookSyncManager", "Successfully deleted transaction ${transactionId} (Firestore ID: $it)")
-            } ?: Log.w("MonthBookSyncManager", "Firestore ID not found for delete: ${transactionId}")
+                Log.d("MonthBookSyncManager", "Successfully deleted transaction $transactionId (Firestore ID: $it)")
+            } ?: Log.w("MonthBookSyncManager", "Firestore ID not found for delete: $transactionId")
         } catch (e: Exception) {
-            Log.e("MonthBookSyncManager", "Failed to delete transaction ${transactionId}", e)
+            Log.e("MonthBookSyncManager", "Failed to delete transaction $transactionId", e)
             // Keep the PENDING_DELETE status for the worker to handle
-        }
-    }
-
-    private suspend fun getFirestoreDocumentId(transaction: MonthBookTransactionEntity?): String? {
-        if (transaction == null) return null
-        return try {
-            val querySnapshot = firestore.collection(fireStoreMonthBookTransactionPath)
-                .whereEqualTo("id", transaction.id)
-                .whereEqualTo("timestamp", transaction.timestamp)
-                .get()
-                .await()
-            if (!querySnapshot.isEmpty) {
-                querySnapshot.documents[0].id
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("MonthBookSyncManager", "Error getting Firestore document ID: ${e.message}")
-            null
         }
     }
 }
