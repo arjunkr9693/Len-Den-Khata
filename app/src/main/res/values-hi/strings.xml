@@ -64,4 +64,7 @@
     <string name="expense">एक्सपेंस</string>
     <string name="suppliers">सप्लायर</string>
     <string name="more">अधिक</string>
+    <string name="welcome_to_app">ऐप में आपका स्वागत है</string>
+    <string name="phoneNumberInputInstruction">फ़ोन नंबर में कंट्री कोड होना चाहिए जैसे +9101234567890</string>
+    <string name="invalid_phone_number">अमान्य नंबर</string>
 </resources>

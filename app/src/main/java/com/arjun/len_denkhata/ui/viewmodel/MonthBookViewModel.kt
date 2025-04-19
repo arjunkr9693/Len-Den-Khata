@@ -88,9 +88,10 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
                 amount = amount,
                 description = description,
                 type = type,
-                expenseCategory = monthBookExpenseCategory,
-                timestamp = mergedTimestamp
+                timestamp = mergedTimestamp,
+                expenseCategory = if (type == MonthBookTransactionType.EXPENSE) monthBookExpenseCategory else null
             )
+
             repository.insertTransaction(newTransaction)
         }
     }

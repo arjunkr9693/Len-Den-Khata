@@ -180,7 +180,7 @@ class InitialDataLoaderViewModel @Inject constructor(
                 continue
             }
             val description = data["description"] as? String ?: ""
-            val monthBookExpenseCategoryString = data["monthBookExpenseCategory"] as? String
+            val monthBookExpenseCategoryString = data["expenseCategory"] as? String
             val monthBookExpenseCategory = monthBookExpenseCategoryString?.let {
                 try {
                     enumValueOf<MonthBookExpenseCategory>(it.uppercase())

@@ -64,4 +64,7 @@
     <string name="expense">Expense</string>
     <string name="suppliers">Suppliers</string>
     <string name="more">More</string>
+    <string name="welcome_to_app">Welcome to the App</string>
+    <string name="phoneNumberInputInstruction">Phone number should contain country code like +9101234567890</string>
+    <string name="invalid_phone_number">Invalid Number</string>
 </resources>
