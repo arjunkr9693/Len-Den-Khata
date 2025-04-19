@@ -14,10 +14,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
 
 
@@ -27,7 +29,9 @@ fun TopAppBar(
 ) {
     (
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showBackButton && navController != null) {
@@ -53,7 +57,7 @@ fun TopAppBar(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.padding(end = 8.dp)
             ) {
-                Text("MonthBook")
+                Text(stringResource(R.string.monthbook))
             }
         })
 }

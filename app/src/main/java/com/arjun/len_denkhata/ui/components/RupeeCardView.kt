@@ -13,10 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.arjun.len_denkhata.R
 import kotlin.math.absoluteValue
 
 @Composable
@@ -53,9 +55,9 @@ fun RupeeCardRow(totalCredit: Double, totalDebit: Double, todayDue: Double) {
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceAround
     ) {
-        RupeeCardView(title = "Will Give", value = totalCredit.absoluteValue)
-        RupeeCardView(title = "Will Get", value = totalDebit)
-        RupeeCardView(title = "Today Due", value = todayDue)
+        RupeeCardView(title = stringResource(R.string.will_give), value = totalCredit.absoluteValue)
+        RupeeCardView(title = stringResource(R.string.will_get), value = totalDebit)
+        RupeeCardView(title = stringResource(R.string.today_due), value = todayDue)
     }
 }
 

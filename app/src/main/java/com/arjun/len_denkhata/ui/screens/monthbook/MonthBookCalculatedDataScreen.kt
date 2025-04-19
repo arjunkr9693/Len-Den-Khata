@@ -13,9 +13,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
+import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import java.time.YearMonth
@@ -46,7 +49,7 @@ fun MonthBookCalculatedDataScreen(
     Scaffold(
         topBar = {
             CustomTopBarWithIcon(
-                title = "Month Book Details",
+                title = stringResource(R.string.month_book_details),
                 onBackClick = { navController.popBackStack() },
                 onRightIconClick = {},
                 rightIcon = null,
@@ -69,24 +72,24 @@ fun MonthBookCalculatedDataScreen(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Current Month (${currentMonth.format(DateTimeFormatter.ofPattern("MMMM '${if (Locale.getDefault().country == "IN") "₹" else ""}'", Locale.getDefault()))})",
+                            stringResource(R.string.current_month_with_amount, currentMonth.format(DateTimeFormatter.ofPattern("MMMM '${if (Locale.getDefault().country == "IN") "₹" else ""}'", Locale.getDefault()))),
                             style = MaterialTheme.typography.headlineSmall
                         )
                         Divider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text("Income: ₹${String.format("%.2f", totalIncome)}", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.income_with_amount, String.format("%.2f", totalIncome)), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Expense: ₹${String.format("%.2f", totalExpense)}", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.expense_with_amount, String.format("%.2f", totalExpense)), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Net Income: ₹${String.format("%.2f", netIncome)}",
+                            stringResource(R.string.net_income_with_amount, String.format("%.2f", netIncome)),
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
@@ -95,7 +98,7 @@ fun MonthBookCalculatedDataScreen(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Average Income: ₹${String.format("%.2f", averageIncome)}",
+                            stringResource(R.string.average_income_with_amount, String.format("%.2f", averageIncome)),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -104,7 +107,7 @@ fun MonthBookCalculatedDataScreen(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Average Income (Days with Income): ₹${String.format("%.2f", averageIncomeOnIncomeDays)}", // Display the new average
+                            stringResource(R.string.average_income_on_income_days_with_amount, String.format("%.2f", averageIncomeOnIncomeDays)), // Display the new average
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -112,42 +115,47 @@ fun MonthBookCalculatedDataScreen(
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Expenses by Category (Current Month)", style = MaterialTheme.typography.titleMedium)
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(stringResource(R.string.expenses_by_category_current_month), style = MaterialTheme.typography.titleMedium)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         if (expenseByCategory.isNotEmpty()) {
                             expenseByCategory.forEach { (category, amount) ->
-                                Text("$category: ₹${String.format("%.2f", amount)}", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = if (category == MonthBookExpenseCategory.GENERAL ) stringResource(R.string.general) else stringResource(R.string.work_related) + ": " + String.format("%.2f", amount),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         } else {
-                            Text("No expenses recorded this month.", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.no_expenses_recorded_this_month), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Average Expense by Category (Current Month)", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.average_expense_by_category_current_month), style = MaterialTheme.typography.titleMedium)
                         Divider(modifier = Modifier.padding(vertical = 8.dp))
                         if (averageExpenseByCategory.isNotEmpty()) {
                             averageExpenseByCategory.forEach { (category, amount) ->
-                                Text("$category: ₹${String.format("%.2f", amount)}", style = MaterialTheme.typography.bodyLarge)
+                                Text(if (category == MonthBookExpenseCategory.GENERAL ) stringResource(R.string.general) else stringResource(R.string.work_related) + ": " + String.format("%.2f", amount), style = MaterialTheme.typography.bodyLarge)
                             }
                         } else {
-                            Text("No expenses recorded this month.", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.no_expenses_recorded_this_month), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp)) // Add some space before the monthly totals
-            Text("Monthly Income & Expense", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.monthly_income_expense), style = MaterialTheme.typography.headlineSmall)
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)) {
                     monthlyTotals.forEach { (yearMonth, totals) ->
                         val formattedMonth = yearMonth.format(DateTimeFormatter.ofPattern("MMMM", Locale.getDefault()))
                         Text(
-                            "$formattedMonth - Expense: ₹${String.format("%.2f", totals.second)}, Income: ₹${String.format("%.2f", totals.first)}",
+                            stringResource(R.string.month_expense_income, formattedMonth, String.format("%.2f", totals.second), String.format("%.2f", totals.first)),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -156,4 +164,3 @@ fun MonthBookCalculatedDataScreen(
         }
     }
 }
-

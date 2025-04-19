@@ -24,6 +24,7 @@ import com.arjun.len_denkhata.ui.screens.monthbook.AddMonthBookTransactionScreen
 import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookScreen
 import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.screens.InitialDataLoaderScreen
+import com.arjun.len_denkhata.ui.screens.LanguageSelectionScreen
 import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookCalculatedDataScreen
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
 
@@ -195,5 +196,10 @@ fun NavigationGraph(navController: NavHostController, startDestination: String) 
 //                }
             )
         }
+
+        composable("language_selection") {
+            LanguageSelectionScreen(navController)
+        }
+
     }
 }

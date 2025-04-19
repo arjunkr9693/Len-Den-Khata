@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
@@ -185,7 +187,7 @@ fun CustomerTransactionEntryScreen(
                 selectedMillis?.let { millis ->
                     val newDate = Date(millis)
                     if (newDate.after(Date())) {
-                        dateError = "Mentioned date should be before the current date"
+                        dateError = context.getString(R.string.date_error_while_choosing)
                     } else {
                         dateError = null
                         selectedDate = newDate
@@ -199,7 +201,9 @@ fun CustomerTransactionEntryScreen(
     Scaffold(
         topBar = {
             CustomTopBarWithIcon(
-                title = if (transactionType == "You Gave") "You Gave" else "You Got",
+                title = if (transactionType == "You Gave") stringResource(R.string.you_gave) else stringResource(
+                    R.string.you_got
+                ),
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -219,7 +223,7 @@ fun CustomerTransactionEntryScreen(
                     onValueChange = { newValue ->
                         amountTextFieldValue = newValue
                         if (isExpression(newValue.text)) {
-                            calculatedResult = "Calculated amount = ${calculateExpression(newValue.text)}"
+                            calculatedResult = context.getString(R.string.calculated_amount) + {calculateExpression(newValue.text)}
                         } else {
                             calculatedResult = ""
                         }
@@ -238,7 +242,7 @@ fun CustomerTransactionEntryScreen(
                     OutlinedTextField(
                         value = calculatedResult,
                         onValueChange = {},
-                        label = { Text("Calculation") },
+                        label = { Text(stringResource(R.string.calculation)) },
                         modifier = Modifier.fillMaxWidth(),
                         readOnly = true
                     )
@@ -249,7 +253,7 @@ fun CustomerTransactionEntryScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text(stringResource(R.string.description)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(descriptionFocusRequester)
@@ -268,7 +272,7 @@ fun CustomerTransactionEntryScreen(
                 OutlinedTextField(
                     value = dateFormatter.format(selectedDate),
                     onValueChange = {},
-                    label = { Text("Date") },
+                    label = { Text(stringResource(R.string.date)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(dateFocusRequester)
@@ -338,7 +342,7 @@ fun CustomerTransactionEntryScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = dateError == null
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.save))
                 }
             }
 
@@ -359,7 +363,7 @@ fun CustomerTransactionEntryScreen(
                             selection = TextRange(newText.length)
                         )
                         if (isExpression(newText)) {
-                            calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                         }
                     },
                     onClearClicked = {
@@ -374,7 +378,7 @@ fun CustomerTransactionEntryScreen(
                                 selection = TextRange(newText.length)
                             )
                             if (isExpression(newText)) {
-                                calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                                calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                             } else {
                                 calculatedResult = ""
                             }
@@ -386,7 +390,7 @@ fun CustomerTransactionEntryScreen(
                             text = newText,
                             selection = TextRange(newText.length)
                         )
-                        calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onMultiplyClicked = {
                         val newText = amountTextFieldValue.text + "*"
@@ -394,7 +398,7 @@ fun CustomerTransactionEntryScreen(
                             text = newText,
                             selection = TextRange(newText.length)
                         )
-                        calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onMinusClicked = {
                         val newText = amountTextFieldValue.text + "-"
@@ -402,7 +406,7 @@ fun CustomerTransactionEntryScreen(
                             text = newText,
                             selection = TextRange(newText.length)
                         )
-                        calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onPlusClicked = {
                         val newText = amountTextFieldValue.text + "+"
@@ -410,7 +414,7 @@ fun CustomerTransactionEntryScreen(
                             text = newText,
                             selection = TextRange(newText.length)
                         )
-                        calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onDecimalClicked = {
                         val newText = amountTextFieldValue.text + "."
@@ -419,7 +423,7 @@ fun CustomerTransactionEntryScreen(
                             selection = TextRange(newText.length)
                         )
                         if (isExpression(newText)) {
-                            calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                         }
                     },
                     onPercentageClicked = {
@@ -428,7 +432,7 @@ fun CustomerTransactionEntryScreen(
                             text = newText,
                             selection = TextRange(newText.length)
                         )
-                        calculatedResult = "Calculated amount = ${calculateExpression(newText)}"
+                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onEqualsClicked = {
                         if (isExpression(amountTextFieldValue.text)) {

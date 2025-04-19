@@ -15,8 +15,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.ui.viewmodel.InitialDataLoaderViewModel
 import com.arjun.len_denkhata.ui.viewmodel.InitialLoadingState
 
@@ -41,7 +43,7 @@ fun InitialDataLoaderScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator()
-                Text(text = "Loading Initial Data...")
+                Text(text = stringResource(R.string.loading_initial_data))
             }
         }
         InitialLoadingState.LOADED -> {
@@ -54,8 +56,8 @@ fun InitialDataLoaderScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = "Error Loading Data:")
-                Text(text = errorMessage ?: "Unknown error")
+                Text(text = stringResource(R.string.error_loading_data))
+                Text(text = errorMessage ?: stringResource(R.string.unknown_error))
                 // Optionally add a button to retry loading
             }
         }

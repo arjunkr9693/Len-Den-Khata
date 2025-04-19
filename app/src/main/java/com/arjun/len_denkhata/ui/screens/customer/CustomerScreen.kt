@@ -30,7 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.data.utils.CountryCodeDialog
 import com.arjun.len_denkhata.data.utils.UserSession
@@ -99,7 +101,7 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
 
 
     Scaffold(
-        topBar = { TopAppBar("Customers", navController = navController) },
+        topBar = { TopAppBar(stringResource(R.string.customers), navController = navController) },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 UserSession.isContactPickerShowing = true

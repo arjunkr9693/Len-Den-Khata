@@ -21,9 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
@@ -42,7 +44,7 @@ fun CustomerDetailScreen(
     Scaffold(
         topBar = {
             CustomTopBarWithIcon(
-                title = "Customer Details",
+                title = stringResource(R.string.customer_details),
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -57,7 +59,7 @@ fun CustomerDetailScreen(
             OutlinedTextField(
                 value = name!!,
                 onValueChange = { name = it },
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.name)) },
                 trailingIcon = {
                     IconButton(
                         onClick = {
@@ -67,7 +69,7 @@ fun CustomerDetailScreen(
                             }
                         }
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Save")
+                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.save))
                     }
                 },
                 modifier = Modifier
@@ -80,7 +82,7 @@ fun CustomerDetailScreen(
                 value = phone!!,
                 readOnly = true,
                 onValueChange = {},
-                label = { Text("Phone") },
+                label = { Text(stringResource(R.string.phone)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
@@ -88,7 +90,7 @@ fun CustomerDetailScreen(
 
             // Overall Balance Text
             Text(
-                text = "Overall Balance: ${customer?.overallBalance}",
+                text = stringResource(R.string.overall_balance) + customer?.overallBalance.toString(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
@@ -106,7 +108,7 @@ fun CustomerDetailScreen(
                     .padding(top = 16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
             ) {
-                Text("Delete Customer", color = Color.White)
+                Text(stringResource(R.string.delete_customer), color = Color.White)
             }
         }
     }

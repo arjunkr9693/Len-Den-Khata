@@ -25,12 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
@@ -84,7 +86,7 @@ fun CustomerTransactionScreen(
                         )
                     )
                 }) {
-                    Text("You Gave")
+                    Text(stringResource(R.string.you_gave))
                 }
                 Button(onClick = {
                     navController.navigate(
@@ -94,7 +96,7 @@ fun CustomerTransactionScreen(
                         )
                     )
                 }) {
-                    Text("You Got")
+                    Text(stringResource(R.string.you_got))
                 }
             }
         }
@@ -107,12 +109,12 @@ fun CustomerTransactionScreen(
             Text(
                 text = if (customer != null) {
                     if (customer!!.overallBalance >= 0) {
-                        "You will get: ${customer!!.overallBalance}"
+                        stringResource(R.string.you_will_get) + customer!!.overallBalance.toString()
                     } else {
-                        "You will give: ${customer!!.overallBalance * -1}"
+                        stringResource(R.string.you_will_give) + (customer!!.overallBalance * -1).toString()
                     }
                 } else {
-                    "You will get: 0.0"
+                    stringResource(R.string.you_will_get) + "0.0"
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,7 +190,7 @@ fun TransactionItem(
     val backgroundColor = if (isCredit) Color(0xFFE8F5E9) else Color(0xFFFFEBEE) // Light green for credit, light red for debit
 
     // Text for "You gave" or "You got"
-    val transactionTypeText = if (isCredit) "You got" else "You gave"
+    val transactionTypeText = if (isCredit) stringResource(R.string.you_got) else stringResource(R.string.you_gave)
 
     // Alignment based on owner or other user
     val alignment = if (isMadeByOwner) Arrangement.End else Arrangement.Start
@@ -203,7 +205,7 @@ fun TransactionItem(
         Card(
             modifier = Modifier
                 .widthIn(max = 350.dp)
-                .clickable {  }, // Limit width for better readability
+                .clickable { }, // Limit width for better readability
             elevation = CardDefaults.cardElevation(5.dp)
         ) {
             Row(
@@ -237,7 +239,7 @@ fun TransactionItem(
                     if (transaction.isEdited && transaction.editedOn != null) {
                         val formattedEditedOn = SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault()).format(Date(transaction.editedOn))
                         Text(
-                            text = "Edited on: $formattedEditedOn",
+                            text = stringResource(R.string.edited_on) + formattedEditedOn,
                             fontSize = 8.sp,
                             color = Color.Gray
                         )
@@ -245,7 +247,10 @@ fun TransactionItem(
 
                 }
                 Column(
-                    modifier = Modifier.fillMaxHeight().padding(end = 8.dp).weight(1f),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(end = 8.dp)
+                        .weight(1f),
                     horizontalAlignment = Alignment.End,
                 ) {
                     // Menu bar at the top right (only for owner's transactions)
@@ -270,7 +275,7 @@ fun TransactionItem(
                                         expanded = false
                                     },
                                     text = {
-                                        Text("Edit")
+                                        Text(stringResource(R.string.edit))
                                     }
                                 )
                                 DropdownMenuItem(
@@ -279,7 +284,7 @@ fun TransactionItem(
                                         expanded = false
                                     },
                                     text = {
-                                        Text("Delete")
+                                        Text(stringResource(R.string.delete))
                                     }
                                 )
                             }
@@ -290,7 +295,9 @@ fun TransactionItem(
                         text = "₹${"%.2f".format(transaction.amount)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxSize().padding(top = if(!isMadeByOwner) 8.dp else 0.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = if (!isMadeByOwner) 8.dp else 0.dp),
                         textAlign = TextAlign.End
                     )
 

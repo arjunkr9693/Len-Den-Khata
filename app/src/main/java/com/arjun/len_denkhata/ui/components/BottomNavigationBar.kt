@@ -10,9 +10,11 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
 
 @Composable
@@ -32,19 +34,17 @@ fun BottomNavigationBar(navController: NavHostController) {
                         Screen.Customer -> Icon(Icons.Filled.Person, contentDescription = "Customers")
                         Screen.Supplier -> Icon(Icons.Filled.ShoppingCart, contentDescription = "Suppliers")
                         Screen.More -> Icon(Icons.Filled.MoreVert, contentDescription = "More")
-                        Screen.CustomerTransaction -> TODO()
-                        Screen.SupplierTransaction -> TODO()
-                        Screen.TransactionEntry -> TODO()
-                        Screen.Login -> TODO()
-                        Screen.CustomerDetail -> TODO()
-                        Screen.MonthBook -> TODO()
-                        Screen.MonthBookCalculatedData -> TODO()
-                        Screen.AddExpense -> TODO()
-                        Screen.AddIncome -> TODO()
-                        Screen.EditMonthBookTransaction -> TODO()
+                        else -> TODO()
                     }
                 },
-                label = { Text(screen.route) },
+                label = { Text(
+                    when (screen) {
+                        Screen.Customer -> stringResource(R.string.customers)
+                        Screen.Supplier -> stringResource(R.string.suppliers)
+                        Screen.More -> stringResource(R.string.more)
+                        else -> screen.route // Fallback to route if no string resource
+                    }
+                ) },
                 selected = currentRoute == screen.route,
                 onClick = {
                     navController.navigate(screen.route) {

@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
+import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
 import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
@@ -39,7 +41,7 @@ fun MonthBookScreen(
     Scaffold(
         topBar = {
             CustomTopBarWithIcon(
-                title = "Month Book",
+                title = stringResource(R.string.month_book),
                 onBackClick = { navController.popBackStack() },
                 onRightIconClick = { navController.navigate(Screen.MonthBookCalculatedData.route) },
                 rightIcon = ImageVector.vectorResource(id = R.drawable.calculator_icon),
@@ -54,10 +56,10 @@ fun MonthBookScreen(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Button(onClick = { navController.navigate(Screen.AddIncome.route) }) {
-                    Text("Add Income")
+                    Text(stringResource(R.string.add_income))
                 }
                 Button(onClick = { navController.navigate(Screen.AddExpense.route) }) {
-                    Text("Add Expense")
+                    Text(stringResource(R.string.add_expense))
                 }
             }
         }
@@ -127,7 +129,7 @@ fun MonthBookTransactionItem(
         MonthBookTransactionType.EXPENSE -> Color(0xFFFFEBEE) // Light red
     }
 
-    val transactionTypeText = transaction.type.name.lowercase().replaceFirstChar { it.uppercase() }
+    val transactionTypeText = if (transaction.type == MonthBookTransactionType.INCOME) stringResource(R.string.income) else stringResource(R.string.expense)
 
     Row(
         modifier = Modifier
@@ -164,7 +166,7 @@ fun MonthBookTransactionItem(
                     )
                     transaction.expenseCategory?.let {
                         Text(
-                            text = "Category: ${it.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                            text = stringResource(R.string.category) + ": " + if(it == MonthBookExpenseCategory.GENERAL) stringResource(R.string.general) else stringResource(R.string.work_related),
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -174,12 +176,12 @@ fun MonthBookTransactionItem(
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "₹${"%.2f".format(transaction.amount)}",
+                            text = stringResource(R.string.amount_with_rupee, "%.2f".format(transaction.amount)),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                         IconButton(onClick = { expanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.options))
                         }
                         DropdownMenu(
                             expanded = expanded,
@@ -190,14 +192,14 @@ fun MonthBookTransactionItem(
                                     onEdit(transaction)
                                     expanded = false
                                 },
-                                text = { Text("Edit") }
+                                text = { Text(stringResource(R.string.edit)) }
                             )
                             DropdownMenuItem(
                                 onClick = {
                                     onDelete(transaction)
                                     expanded = false
                                 },
-                                text = { Text("Delete") }
+                                text = { Text(stringResource(R.string.delete)) }
                             )
                         }
                     }

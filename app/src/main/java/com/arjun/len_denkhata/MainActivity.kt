@@ -12,7 +12,6 @@ import android.os.Bundle
 import android.provider.ContactsContract
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import com.arjun.len_denkhata.data.repository.LoginRepository
 import com.arjun.len_denkhata.data.utils.DailyTransactionReminderReceiver
 import com.arjun.len_denkhata.data.utils.UserSession
+import com.arjun.len_denkhata.data.utils.getSavedLanguageFromPrefs
 import com.arjun.len_denkhata.ui.components.BottomNavigationBar
 import com.arjun.len_denkhata.ui.theme.Len_DenKhataTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -90,22 +90,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Len_DenKhataTheme {
-
+                val savedLanguage = getSavedLanguageFromPrefs(context = this)
                 var startDestination: String = Screen.Customer.route
-                val user = loginRepository.getUser()
 
-                val isInitialDataDownloaded = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE).getBoolean("initialDataDownloaded", false)
-
-                if (user != null) {
-                    UserSession.initialize(user)
-                    if(!isInitialDataDownloaded) {
-                        startDestination = "initial_data_loader"
-                    }
-                    LenDenKhataApp(startDestination)
+                if(savedLanguage  == null) {
+                    startDestination = "language_selection"
                 } else {
-                    startDestination = Screen.Login.route
-                    LenDenKhataApp(startDestination)
+                    val user = loginRepository.getUser()
+
+                    val isInitialDataDownloaded = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE).getBoolean("initialDataDownloaded", false)
+
+                    if (user != null) {
+                        UserSession.initialize(user)
+                        if(!isInitialDataDownloaded) {
+                            startDestination = "initial_data_loader"
+                        }
+                    } else {
+                        startDestination = Screen.Login.route
+                    }
                 }
+
+                LenDenKhataApp(startDestination)
             }
         }
     }
