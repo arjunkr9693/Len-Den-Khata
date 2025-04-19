@@ -194,8 +194,17 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             0.0
         }
 
-        _calculatedAvgIncome.value = if (currentMonthTransactions.any { it.type == MonthBookTransactionType.INCOME } && currentMonthTransactions.isNotEmpty()) {
-            totalCurrentMonthIncome / currentMonthTransactions.count { it.type == MonthBookTransactionType.INCOME }
+        // Calculate number of days from month start to current date
+        val daysInMonthUpToNow = if (YearMonth.now() == currentMonth) {
+            // If current month, use today's date
+            LocalDate.now().dayOfMonth
+        } else {
+            // If past month, use total days in that month
+            currentMonth.lengthOfMonth()
+        }
+
+        _calculatedAvgIncome.value = if (daysInMonthUpToNow > 0 && totalCurrentMonthIncome > 0) {
+            totalCurrentMonthIncome / daysInMonthUpToNow.toDouble()
         } else {
             0.0
         }

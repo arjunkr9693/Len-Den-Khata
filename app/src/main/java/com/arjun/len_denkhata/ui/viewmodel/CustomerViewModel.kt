@@ -16,7 +16,6 @@ import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransa
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
 import com.arjun.len_denkhata.data.repository.LoginRepository
-import com.arjun.len_denkhata.data.utils.UserSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +32,6 @@ import javax.inject.Inject
 class CustomerViewModel @Inject constructor(
     private val customerRepository: CustomerRepository,
     private val customerTransactionRepository: CustomerTransactionRepository,
-    private val loginRepository: LoginRepository,
     @ApplicationContext private val applicationContext: Context
 ) : ViewModel() {
 
@@ -54,6 +52,7 @@ class CustomerViewModel @Inject constructor(
 
     val todayDue: StateFlow<Double> = customerTransactionRepository.todayDue
 
+
     private val _phoneNumberToMerge = MutableStateFlow("")
     val phoneNumberToMerge: StateFlow<String> = _phoneNumberToMerge
 
@@ -73,7 +72,7 @@ class CustomerViewModel @Inject constructor(
         Log.d("testTag", "viewModel Initialized")
         viewModelScope.launch {
             loadCustomers()
-//            loadAllTransactionsAndCalculateTotals()
+            calculateTodayDue()
         }
     }
 
@@ -220,5 +219,12 @@ class CustomerViewModel @Inject constructor(
         }
         return@withContext contactName
     }
+
+    private fun calculateTodayDue() {
+        viewModelScope.launch {
+            customerTransactionRepository.calculateTodayDue()
+        }
+    }
+
 
 }

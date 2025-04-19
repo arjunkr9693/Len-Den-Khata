@@ -77,13 +77,20 @@ fun MonthBookScreen(
 
                 groupedTransactions.forEach { (date, transactionsForDate) ->
                     item {
-                        Text(
-                            text = date,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            fontWeight = FontWeight.Bold
-                        )
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                            Text(
+                                text = date,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                        }
                     }
 
                     items(transactionsForDate) { transaction ->

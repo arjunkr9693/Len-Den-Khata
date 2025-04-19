@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.absoluteValue
 
 @Composable
 fun RupeeCardView(title: String, value: Double) {
@@ -52,7 +53,7 @@ fun RupeeCardRow(totalCredit: Double, totalDebit: Double, todayDue: Double) {
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceAround
     ) {
-        RupeeCardView(title = "Will Give", value = totalCredit)
+        RupeeCardView(title = "Will Give", value = totalCredit.absoluteValue)
         RupeeCardView(title = "Will Get", value = totalDebit)
         RupeeCardView(title = "Today Due", value = todayDue)
     }

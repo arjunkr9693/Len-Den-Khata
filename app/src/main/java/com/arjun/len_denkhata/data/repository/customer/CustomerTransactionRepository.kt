@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -29,20 +30,9 @@ class CustomerTransactionRepository @Inject constructor(
     init {
         Log.d("CustomerTransactionRepo", "Repository initialized")
     }
-    private val _allTransactions = MutableStateFlow<List<CustomerTransactionEntity>>(emptyList())
-    val allTransactions: StateFlow<List<CustomerTransactionEntity>> = _allTransactions
 
     private val _todayDue = MutableStateFlow(0.0)
     val todayDue: StateFlow<Double> = _todayDue
-
-    suspend fun fetchAllTransactions(ownerId: String) {
-        withContext(Dispatchers.IO) {
-            customerTransactionDao.getTransactionsByOwnerId().collectLatest {
-                _allTransactions.value = it
-                calculateTodayDue()
-            }
-        }
-    }
 
     suspend fun insertCustomerTransaction(
         transaction: CustomerTransactionEntity,
@@ -51,7 +41,6 @@ class CustomerTransactionRepository @Inject constructor(
         try {
             val transactionId = customerTransactionDao.insert(transaction)
             val insertedTransaction = transaction.copy(id = transactionId)
-            _allTransactions.value += insertedTransaction
             customerRepository.updateCustomerBalance(insertedTransaction.customerId, insertedTransaction.amount, insertedTransaction.isCredit)
             if (insertedTransaction.isMadeByOwner && !initialStoringWhenLoggin) {
                 customerSyncManager.enqueueTransactionForUpload(insertedTransaction)
@@ -61,9 +50,8 @@ class CustomerTransactionRepository @Inject constructor(
         }
     }
 
-    private suspend fun calculateTodayDue() = withContext(Dispatchers.IO) {
-        val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"))
-        val now = calendar.timeInMillis
+    suspend fun calculateTodayDue() = withContext(Dispatchers.IO) {
+        val calendar = Calendar.getInstance()
 
         val todayStart = calendar.apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -79,12 +67,14 @@ class CustomerTransactionRepository @Inject constructor(
             set(Calendar.MILLISECOND, 999)
         }.timeInMillis
 
-        val totalTodayDue = _allTransactions.value
-            .filter { it.timestamp in todayStart..todayEnd && !it.isCredit }
-            .sumOf { it.amount }
+        customerTransactionDao.getTodayDebitTransactions(todayStart, todayEnd)
+            .collectLatest { debitTransactions ->
 
-        Log.d("CustomerTransactionRepo", "Today due: $totalTodayDue")
-        _todayDue.value = totalTodayDue
+                Log.d("TotalDue", debitTransactions.toString())
+                val dueAmount = debitTransactions.sumOf { it.amount }
+                Log.d("TotalDue", dueAmount.toString())
+                _todayDue.value = dueAmount
+            }
     }
 
     fun getCustomerTransactionsByCustomerId(customerId: String): Flow<List<CustomerTransactionEntity>> {
@@ -94,7 +84,6 @@ class CustomerTransactionRepository @Inject constructor(
     suspend fun deleteTransaction(transaction: CustomerTransactionEntity) {
         try {
             customerTransactionDao.update(transaction.copy(isDeleted = true))
-            _allTransactions.value = _allTransactions.value.filter { it.id != transaction.id }
             customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, isCredit = !transaction.isCredit)
             if (transaction.isMadeByOwner) {
                 customerSyncManager.enqueueTransactionForDelete(transaction.id)
