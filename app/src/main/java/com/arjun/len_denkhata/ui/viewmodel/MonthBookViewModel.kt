@@ -6,6 +6,7 @@ import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTran
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
 import com.arjun.len_denkhata.data.repository.MonthBookRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -161,8 +162,9 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             .mapValues { entry -> entry.value.sumOf { it.amount } }
     }
 
-    fun calculateMonthData() {
+    suspend fun calculateMonthData() {
         _loadingCalculations.value = true
+        delay(1000)
         val currentMonth = java.time.YearMonth.now()
         val calendar = Calendar.getInstance()
         val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
