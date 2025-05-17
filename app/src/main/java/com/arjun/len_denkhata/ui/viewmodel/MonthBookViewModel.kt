@@ -106,23 +106,23 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
         monthBookExpenseCategory: MonthBookExpenseCategory? = null // Using MonthBookExpenseCategory
     ) {
         viewModelScope.launch {
-            val calendar = Calendar.getInstance()
-            calendar.timeInMillis = System.currentTimeMillis()
+            val originalTimestampCalendar = Calendar.getInstance()
+            originalTimestampCalendar.timeInMillis = existingTransaction.timestamp
 
-            val hourOfDay = calendar.get(Calendar.HOUR_OF_DAY)
-            val minute = calendar.get(Calendar.MINUTE)
-            val second = calendar.get(Calendar.SECOND)
-            val millisecond = calendar.get(Calendar.MILLISECOND)
+            val hourOfDay = originalTimestampCalendar.get(Calendar.HOUR_OF_DAY)
+            val minute = originalTimestampCalendar.get(Calendar.MINUTE)
+            val second = originalTimestampCalendar.get(Calendar.SECOND)
+            val millisecond = originalTimestampCalendar.get(Calendar.MILLISECOND)
 
-            val dateCalendar = Calendar.getInstance()
-            dateCalendar.time = date
+            val newDateCalendar = Calendar.getInstance()
+            newDateCalendar.time = date
 
-            dateCalendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-            dateCalendar.set(Calendar.MINUTE, minute)
-            dateCalendar.set(Calendar.SECOND, second)
-            dateCalendar.set(Calendar.MILLISECOND, millisecond)
+            newDateCalendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            newDateCalendar.set(Calendar.MINUTE, minute)
+            newDateCalendar.set(Calendar.SECOND, second)
+            newDateCalendar.set(Calendar.MILLISECOND, millisecond)
 
-            val mergedTimestamp = dateCalendar.timeInMillis
+            val mergedTimestamp = newDateCalendar.timeInMillis
 
             val updatedTransaction = existingTransaction.copy(
                 amount = amount,
@@ -131,7 +131,7 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
                 expenseCategory = monthBookExpenseCategory,
                 edited = true,
                 editedOn = System.currentTimeMillis(),
-                timestamp = mergedTimestamp // Using the merged timestamp for the main timestamp as well
+                timestamp = mergedTimestamp // Using the merged timestamp
             )
             repository.updateTransaction(updatedTransaction) // Assuming OnConflictStrategy.REPLACE in DAO
         }

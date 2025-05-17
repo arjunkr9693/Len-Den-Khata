@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -12,11 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,6 +55,7 @@ fun MonthBookScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.Transparent)
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
@@ -71,7 +75,9 @@ fun MonthBookScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                reverseLayout = false // Show latest at the bottom, like your example
+                state = rememberLazyListState(),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val groupedTransactions = transactions.groupBy {
                     SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(it.timestamp))
@@ -79,20 +85,13 @@ fun MonthBookScreen(
 
                 groupedTransactions.forEach { (date, transactionsForDate) ->
                     item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f))
-                            Text(
-                                text = date,
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                fontWeight = FontWeight.Bold
-                            )
-                            HorizontalDivider(modifier = Modifier.weight(1f))
-                        }
+                        Text(
+                            text = date,
+                            modifier = Modifier.fillMaxWidth(),
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+
+                        )
                     }
 
                     items(transactionsForDate) { transaction ->
@@ -121,95 +120,111 @@ fun MonthBookTransactionItem(
     onDelete: (MonthBookTransactionEntity) -> Unit,
     onEdit: (MonthBookTransactionEntity) -> Unit,
 ) {
-    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
     var expanded by remember { mutableStateOf(false) }
 
     val backgroundColor = when (transaction.type) {
-        MonthBookTransactionType.INCOME -> Color(0xFFE8F5E9) // Light green
-        MonthBookTransactionType.EXPENSE -> Color(0xFFFFEBEE) // Light red
+        MonthBookTransactionType.INCOME -> Color(0xFFE8F5E9) // Light green for income
+        MonthBookTransactionType.EXPENSE -> Color(0xFFFFEBEE) // Light red for expense
     }
 
-    val transactionTypeText = if (transaction.type == MonthBookTransactionType.INCOME) stringResource(R.string.income) else stringResource(R.string.expense)
+    val transactionTypeText = if (transaction.type == MonthBookTransactionType.INCOME)
+        stringResource(R.string.income) else stringResource(R.string.expense)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp)
-            .clickable { /* Handle item click if needed */ },
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault())
+        .format(Date(transaction.timestamp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(backgroundColor)
+                .clickable { /* Handle item click if needed */ }
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundColor)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = formattedTimestamp,
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = transaction.description,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                    transaction.expenseCategory?.let {
-                        Text(
-                            text = stringResource(R.string.category) + ": " + if(it == MonthBookExpenseCategory.GENERAL) stringResource(R.string.general) else stringResource(R.string.work_related),
-                            fontSize = 12.sp,
-                            color = Color.Gray
+                Text(
+                    text = formattedTimestamp,
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.weight(1f)
+                )
+                Box {
+                    IconButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier
+                            .height(20.dp)
+                            .width(20.dp)
+                    ) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.options))
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                onEdit(transaction)
+                                expanded = false
+                            },
+                            text = { Text(stringResource(R.string.edit)) }
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                onDelete(transaction)
+                                expanded = false
+                            },
+                            text = { Text(stringResource(R.string.delete)) }
                         )
                     }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.amount_with_rupee, "%.2f".format(transaction.amount)),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = { expanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.options))
-                        }
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                onClick = {
-                                    onEdit(transaction)
-                                    expanded = false
-                                },
-                                text = { Text(stringResource(R.string.edit)) }
-                            )
-                            DropdownMenuItem(
-                                onClick = {
-                                    onDelete(transaction)
-                                    expanded = false
-                                },
-                                text = { Text(stringResource(R.string.delete)) }
-                            )
-                        }
-                    }
-                    Text(
-                        text = transactionTypeText,
-                        fontSize = 10.sp,
-                        color = Color.Gray
-                    )
                 }
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = transaction.description,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(0.6f),
+                    textAlign = TextAlign.Start
+                )
+                // Amount
+                Text(
+                    text = stringResource(R.string.amount_with_rupee, "%.2f".format(transaction.amount)),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(0.4f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Category information
+                transaction.expenseCategory?.let {
+                    Text(
+                        text = stringResource(R.string.category) + ": " +
+                                if(it == MonthBookExpenseCategory.GENERAL)
+                                    stringResource(R.string.general)
+                                else
+                                    stringResource(R.string.work_related),
+                        fontSize = 8.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                // Transaction type text
+                Text(
+                    text = transactionTypeText,
+                    fontSize = 8.sp,
+                    color = Color.Gray,
+                )
+            }
         }
-    }
 }

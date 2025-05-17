@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,10 +29,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.Screen
@@ -38,15 +43,26 @@ import com.arjun.len_denkhata.data.utils.CountryCodeDialog
 import com.arjun.len_denkhata.data.utils.UserSession
 import com.arjun.len_denkhata.ui.components.CustomerListItem
 import com.arjun.len_denkhata.ui.components.RupeeCardRow
-import com.arjun.len_denkhata.ui.screens.TopAppBar
+import com.arjun.len_denkhata.ui.components.SearchBar
+import com.arjun.len_denkhata.ui.components.TopAppBar
 import com.arjun.len_denkhata.ui.viewmodel.CustomerViewModel
+import kotlinx.coroutines.launch
 
 
 @Composable
 fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewModel = hiltViewModel()) {
-    var checkedContactName by remember { mutableStateOf(false) }
 
-    val customers by viewModel.customers.collectAsState(initial = emptyList())
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    val coroutineScope = rememberCoroutineScope()
+
+    var checkedContactName by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredCustomers = viewModel.customers.collectAsState(initial = emptyList()).value.filter {
+        it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery, ignoreCase = true)
+    }
+
     val totalHaveToGive by viewModel.totalHaveToGive.collectAsState()
     val totalWillGet by viewModel.totalWillGet.collectAsState()
     val todayDue by viewModel.todayDue.collectAsState()
@@ -59,8 +75,8 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
-    LaunchedEffect(customers.size){
-        if(customers.isNotEmpty() && !checkedContactName) {
+    LaunchedEffect(filteredCustomers.size){
+        if(filteredCustomers.isNotEmpty() && !checkedContactName) {
             viewModel.updateContactNamesFromPhonebook()
             checkedContactName = true
         }
@@ -120,11 +136,20 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            RupeeCardRow(totalCredit = totalHaveToGive, totalDebit = totalWillGet, todayDue = todayDue)
-
+            RupeeCardRow(totalCredit = totalHaveToGive, totalDebit = totalWillGet, todayDue = todayDue, screenWidth)
+            Spacer(Modifier.height(16.dp))
+            SearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = stringResource(R.string.search)
+            )
+            Spacer(Modifier.height(8.dp))
             LazyColumn{
-                items(customers) {customer ->
+                items(filteredCustomers) {customer ->
                     CustomerListItem(customer = customer) { selectedCustomer ->
+                        coroutineScope.launch {
+                            viewModel.setSelectedCustomerById(selectedCustomer.id)
+                        }
                         navController.navigate(Screen.CustomerTransaction.createRoute(selectedCustomer.id))
                     }
                 }

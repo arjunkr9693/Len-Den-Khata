@@ -43,14 +43,21 @@ sealed class Screen(val route: String) {
     }
 
     object TransactionEntry : Screen(
-        "transactionEntry&customerId={customerId}&transactionType={transactionType}&isEditing={isEditing}&customerTransaction={customerTransaction}"
+        "transactionEntry&customerId={customerId}&transactionType={transactionType}&isEditing={isEditing}&transactionId={transactionId}"
     ) {
+        private const val CUSTOMER_ID_ARG = "customerId"
+        private const val TRANSACTION_TYPE_ARG = "transactionType"
+        private const val IS_EDITING_ARG = "isEditing"
+        private const val TRANSACTION_ID_ARG = "transactionId"
+
         fun createRoute(
             customerId: String,
             transactionType: String,
             isEditing: Boolean = false,
-            customerTransaction: CustomerTransactionEntity? = null
-        ) = "transactionEntry&customerId=${customerId}&transactionType=$transactionType&isEditing=$isEditing&customerTransaction=${customerTransaction?.toJson()}"
+            transactionId: Long = -1
+        ): String {
+            return "transactionEntry&$CUSTOMER_ID_ARG=$customerId&$TRANSACTION_TYPE_ARG=$transactionType&$IS_EDITING_ARG=$isEditing${"&$TRANSACTION_ID_ARG=$transactionId"}"
+        }
     }
 
     object MonthBook : Screen("month_book")
@@ -66,7 +73,9 @@ sealed class Screen(val route: String) {
             transactionId: Long
         ) = "edit_month_book_transaction&transactionType=$transactionType&transactionId=$transactionId"
     }
-}@Composable
+}
+
+@Composable
 fun NavigationGraph(navController: NavHostController, startDestination: String) {
 
     var customerViewModel: CustomerViewModel = hiltViewModel()
@@ -106,26 +115,25 @@ fun NavigationGraph(navController: NavHostController, startDestination: String) 
                     type = NavType.BoolType
                     defaultValue = false
                 },
-                navArgument("customerTransaction") {
-                    type = NavType.StringType
-                    nullable = true
+                navArgument("transactionId") {
+                    type = NavType.LongType
+                    defaultValue = -1L // Or some other indicator that it's not present
                 }
             )
         ) { backStackEntry ->
             val customerId = backStackEntry.arguments?.getString("customerId")
             val transactionType = backStackEntry.arguments?.getString("transactionType")
             val isEditing = backStackEntry.arguments?.getBoolean("isEditing") ?: false
-            val customerTransactionJson = backStackEntry.arguments?.getString("customerTransaction")
-            val customerTransaction = customerTransactionJson?.toCustomerTransactionEntity()
+            val transactionId = backStackEntry.arguments?.getLong("transactionId") ?: -1
 
-            Log.d("testTag", customerId.toString())
+            Log.d("testTag", "Transaction ID: $transactionId")
             if (customerId != null && transactionType != null) {
                 CustomerTransactionEntryScreen(
                     navController = navController,
                     customerId = customerId,
                     transactionType = transactionType,
                     isEditing = isEditing,
-                    customerTransactionEntity = customerTransaction
+                    transactionId = transactionId
                 )
             }
         }

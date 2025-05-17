@@ -1,11 +1,6 @@
 package com.arjun.len_denkhata.ui.screens.customer
 
-import android.content.Context
-import android.util.Log
-import android.view.ViewTreeObserver
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.*
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
@@ -13,29 +8,33 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
-import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
+import com.arjun.len_denkhata.data.utils.calculateExpression
+import com.arjun.len_denkhata.data.utils.isExpression
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.components.DatePickerModal
@@ -52,131 +51,70 @@ fun CustomerTransactionEntryScreen(
     transactionType: String,
     viewModel: CustomerTransactionEntryViewModel = hiltViewModel(),
     isEditing: Boolean = false,
-    customerTransactionEntity: CustomerTransactionEntity?
+    transactionId: Long = -1L
 ) {
-    var amountTextFieldValue by remember {
-        mutableStateOf(
-            TextFieldValue(
-                customerTransactionEntity?.amount?.toString() ?: "",
-                TextRange(customerTransactionEntity?.amount?.toString()?.length ?: 0)
-            )
-        )
+    val customerTransactionEntity by viewModel.transactionForEdit.collectAsState()
+
+    LaunchedEffect(transactionId) {
+        if (transactionId != -1L && isEditing) {
+            viewModel.loadTransactionByTransactionId(transactionId)
+        }
     }
-    var description by remember { mutableStateOf(customerTransactionEntity?.description ?: "") }
+
+    var amountTextFieldValue by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var calculatedResult by remember { mutableStateOf("") }
     var showCustomKeyboard by remember { mutableStateOf(false) }
     var amountFieldFocused by remember { mutableStateOf(false) }
     var descriptionFieldFocused by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val view = LocalView.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-    val density = LocalDensity.current
-
-    // Keyboard visibility and padding
-    val keyboardVisible = remember { mutableStateOf(false) }
-    val imePadding = WindowInsets.ime.asPaddingValues()
-    val animatedPadding by animateDpAsState(
-        targetValue = if (keyboardVisible.value) imePadding.calculateBottomPadding() else 0.dp,
-        animationSpec = tween(durationMillis = 300)
-    )
 
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDate by remember {
-        mutableStateOf(customerTransactionEntity?.date ?: Date())
-    }
+    var selectedDate by remember { mutableStateOf(Date()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
-    // Set up keyboard visibility detection
-    DisposableEffect(view) {
-        val onGlobalListener = ViewTreeObserver.OnGlobalLayoutListener {
-            val rect = android.graphics.Rect()
-            view.getWindowVisibleDisplayFrame(rect)
-            val screenHeight = view.rootView.height
-            val keypadHeight = screenHeight - rect.bottom
 
-            val keyboardVisibilityThreshold = screenHeight * 0.15
-            keyboardVisible.value = keypadHeight > keyboardVisibilityThreshold
-            showCustomKeyboard = amountFieldFocused && !keyboardVisible.value
-        }
-
-        view.viewTreeObserver.addOnGlobalLayoutListener(onGlobalListener)
-        onDispose {
-            view.viewTreeObserver.removeOnGlobalLayoutListener(onGlobalListener)
-        }
-    }
-
-    // Cursor blinking animation
-    val cursorBlinkState = remember { Animatable(0f) }
-    LaunchedEffect(amountFieldFocused) {
-        if (amountFieldFocused) {
-            cursorBlinkState.animateTo(
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-        } else {
-            cursorBlinkState.snapTo(0f)
-        }
-    }
-    val cursorColor = if (cursorBlinkState.value > 0.5f && amountFieldFocused) LocalContentColor.current else Color.Transparent
-
-    fun isExpression(input: String): Boolean {
-        return input.contains("+") || input.contains("-") ||
-                input.contains("*") || input.contains("/") ||
-                input.contains("%")
-    }
-
-    fun calculateExpression(expression: String): Double {
-        return try {
-            val parts = expression.split("(?<=[+\\-*/%])|(?=[+\\-*/%])".toRegex())
-            if (parts.size < 3) return expression.toDoubleOrNull() ?: 0.0
-
-            var result = parts[0].toDoubleOrNull() ?: 0.0
-            var i = 1
-            while (i < parts.size) {
-                val operator = parts[i]
-                val operand = parts.getOrNull(i + 1)?.toDoubleOrNull() ?: 0.0
-
-                when (operator) {
-                    "+" -> result += operand
-                    "-" -> result -= operand
-                    "*" -> result *= operand
-                    "/" -> if (operand != 0.0) result /= operand else return 0.0
-                    "%" -> result %= operand
-                }
-                i += 2
+    // Watch for changes to customerTransactionEntity and update UI accordingly
+    LaunchedEffect(customerTransactionEntity) {
+        customerTransactionEntity?.let { entity ->
+            amountTextFieldValue = entity.amount.toString()
+            description = entity.description ?: ""
+            selectedDate = entity.date
+        } ?: run {
+            if (!isEditing) {
+                amountTextFieldValue = ""
+                description = ""
+                selectedDate = Date()
             }
-            result
-        } catch (e: Exception) {
-            0.0
         }
     }
 
-    val amountFocusRequester = remember { FocusRequester() }
-    val descriptionFocusRequester = remember { FocusRequester() }
-    val dateFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(amountFieldFocused) {
+        showCustomKeyboard = amountFieldFocused
+    }
 
     // Handle focus and keyboard visibility
-    LaunchedEffect(amountFieldFocused, descriptionFieldFocused) {
+    LaunchedEffect(descriptionFieldFocused, amountFieldFocused) {
         if (amountFieldFocused) {
-            delay(100)
-            keyboardController?.hide()
-            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(view.windowToken, 0)
-        } else if (descriptionFieldFocused) {
-            delay(100)
-            keyboardController?.show()
+            if(descriptionFieldFocused) {
+                keyboardController?.hide()
+                delay(200)
+                showCustomKeyboard = true
+            }else {
+                showCustomKeyboard = true
+            }
         }
-    }
+        else if(descriptionFieldFocused) {
+            if (showCustomKeyboard) {
+                showCustomKeyboard = false
+                delay(200)
+            }else {
+                keyboardController?.show()
+            }
 
-    LaunchedEffect(Unit) {
-        if (isEditing) {
-            amountFocusRequester.requestFocus()
         }
     }
 
@@ -220,22 +158,11 @@ fun CustomerTransactionEntryScreen(
             ) {
                 CustomAmountTextField(
                     value = amountTextFieldValue,
-                    onValueChange = { newValue ->
-                        amountTextFieldValue = newValue
-                        if (isExpression(newValue.text)) {
-                            calculatedResult = context.getString(R.string.calculated_amount) + {calculateExpression(newValue.text)}
-                        } else {
-                            calculatedResult = ""
-                        }
-                    },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(amountFocusRequester)
-                        .onFocusChanged { focusState ->
-                            amountFieldFocused = focusState.isFocused
-                        },
-                    showCursor = amountFieldFocused,
-                    cursorColor = cursorColor
+                        .fillMaxWidth(),
+                    onFocusChanged = { focused ->
+                        amountFieldFocused = focused
+                    }
                 )
 
                 if (calculatedResult.isNotEmpty()) {
@@ -256,7 +183,6 @@ fun CustomerTransactionEntryScreen(
                     label = { Text(stringResource(R.string.description)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(descriptionFocusRequester)
                         .onFocusChanged { focusState ->
                             descriptionFieldFocused = focusState.isFocused
                         },
@@ -275,11 +201,9 @@ fun CustomerTransactionEntryScreen(
                     label = { Text(stringResource(R.string.date)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(dateFocusRequester)
                         .onFocusChanged { focusState ->
                             if (focusState.isFocused) {
                                 showDatePicker = true
-                                focusManager.clearFocus()
                             }
                         },
                     readOnly = true,
@@ -306,23 +230,23 @@ fun CustomerTransactionEntryScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp)) // Add some space below the date picker
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = {
                         if (dateError == null) {
                             val finalAmount = if (calculatedResult.isNotEmpty()) {
-                                calculateExpression(amountTextFieldValue.text)
+                                calculateExpression(amountTextFieldValue)
                             } else {
-                                amountTextFieldValue.text.toDoubleOrNull() ?: 0.0
+                                amountTextFieldValue.toDoubleOrNull() ?: 0.0
                             }
 
                             if (isEditing && customerTransactionEntity != null) {
                                 viewModel.updateTransaction(
-                                    originalAmount = customerTransactionEntity.amount,
+                                    originalAmount = customerTransactionEntity!!.amount,
                                     amount = finalAmount,
                                     description = description,
-                                    customerTransaction = customerTransactionEntity,
+                                    customerTransaction = customerTransactionEntity!!,
                                     navController = navController,
                                     date = selectedDate
                                 )
@@ -336,13 +260,12 @@ fun CustomerTransactionEntryScreen(
                                     navController
                                 )
                             }
-                            focusManager.clearFocus()
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = dateError == null
                 ) {
-                    Text(stringResource(R.string.save))
+                    Text(if (isEditing) stringResource(R.string.update) else stringResource(R.string.save))
                 }
             }
 
@@ -353,30 +276,23 @@ fun CustomerTransactionEntryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = animatedPadding)
             ) {
                 CustomNumericKeyboard(
                     onDigitClicked = { digit ->
-                        val newText = amountTextFieldValue.text + digit
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
+                        val newText = amountTextFieldValue + digit
+                        amountTextFieldValue = newText
                         if (isExpression(newText)) {
                             calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                         }
                     },
                     onClearClicked = {
-                        amountTextFieldValue = TextFieldValue("", TextRange(0))
+                        amountTextFieldValue = ""
                         calculatedResult = ""
                     },
                     onBackspaceClicked = {
-                        if (amountTextFieldValue.text.isNotEmpty()) {
-                            val newText = amountTextFieldValue.text.dropLast(1)
-                            amountTextFieldValue = amountTextFieldValue.copy(
-                                text = newText,
-                                selection = TextRange(newText.length)
-                            )
+                        if (amountTextFieldValue.isNotEmpty()) {
+                            val newText = amountTextFieldValue.dropLast(1)
+                            amountTextFieldValue = newText
                             if (isExpression(newText)) {
                                 calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                             } else {
@@ -384,66 +300,22 @@ fun CustomerTransactionEntryScreen(
                             }
                         }
                     },
-                    onDivideClicked = {
-                        val newText = amountTextFieldValue.text + "/"
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                    },
-                    onMultiplyClicked = {
-                        val newText = amountTextFieldValue.text + "*"
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                    },
-                    onMinusClicked = {
-                        val newText = amountTextFieldValue.text + "-"
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                    },
-                    onPlusClicked = {
-                        val newText = amountTextFieldValue.text + "+"
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
+                    onOperatorClick = {
+                        val newText = "$amountTextFieldValue$it"
+                        amountTextFieldValue = newText
                         calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                     },
                     onDecimalClicked = {
-                        val newText = amountTextFieldValue.text + "."
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
+                        val newText = "$amountTextFieldValue."
+                        amountTextFieldValue = newText
                         if (isExpression(newText)) {
                             calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
                         }
                     },
                     onPercentageClicked = {
-                        val newText = amountTextFieldValue.text + "%"
-                        amountTextFieldValue = amountTextFieldValue.copy(
-                            text = newText,
-                            selection = TextRange(newText.length)
-                        )
+                        val newText = "$amountTextFieldValue%"
+                        amountTextFieldValue = newText
                         calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                    },
-                    onEqualsClicked = {
-                        if (isExpression(amountTextFieldValue.text)) {
-                            val result = calculateExpression(amountTextFieldValue.text)
-                            val newText = result.toString()
-                            amountTextFieldValue = amountTextFieldValue.copy(
-                                text = newText,
-                                selection = TextRange(newText.length)
-                            )
-                            calculatedResult = ""
-                        }
                     },
                     onMemoryMinusClicked = {},
                     onMemoryPlusClicked = {}

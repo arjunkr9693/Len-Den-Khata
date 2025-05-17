@@ -1,6 +1,5 @@
-package com.arjun.len_denkhata.ui.screens// ui/components/TopAppBar.kt
+package com.arjun.len_denkhata.ui.components// ui/components/TopAppBar.kt
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -52,12 +51,10 @@ fun TopAppBar(
                 fontSize = 18.sp
             )
 
-            Button(
+            CustomClickableRoundedBox(
                 onClick = { navController?.navigate(Screen.MonthBook.route) },
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Text(stringResource(R.string.monthbook))
-            }
+                modifier = Modifier.padding(end = 8.dp),
+                stringResource(R.string.monthbook)
+            )
         })
 }

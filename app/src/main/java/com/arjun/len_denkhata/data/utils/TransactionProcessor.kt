@@ -96,7 +96,7 @@ class TransactionProcessor @Inject constructor(
         withContext(Dispatchers.IO) {
             val existingTransaction = customerTransactionRepository.getTransactionByFirestoreId(firestoreId)
             if (existingTransaction != null) {
-                customerTransactionRepository.deleteTransaction(existingTransaction)
+                customerTransactionRepository.deleteTransaction(existingTransaction.id)
                 Log.d("Room Delete (Incoming)", "Success for Firestore ID: $firestoreId")
             } else {
                 Log.d("Room Delete (Incoming)", "Transaction with Firestore ID $firestoreId not found locally.")

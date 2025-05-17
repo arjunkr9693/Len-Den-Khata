@@ -15,7 +15,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @HiltWorker
@@ -61,7 +60,7 @@ class CustomerSyncWorker @AssistedInject constructor(
             Log.d("CustomerSyncWorker", "Found ${pendingUploads.size} transactions pending upload")
             for (status in pendingUploads) {
                 try {
-                    val transaction = customerTransactionDao.getTransactionById(status.transactionId)
+                    val transaction = customerTransactionDao.getTransactionByTransactionId(status.transactionId)
                         ?: continue
 
                     var firestoreId: String? = null
@@ -93,7 +92,7 @@ class CustomerSyncWorker @AssistedInject constructor(
             Log.d("CustomerSyncWorker", "Found ${pendingUpdates.size} transactions pending update")
             for (status in pendingUpdates) {
                 try {
-                    val transaction = customerTransactionDao.getTransactionById(status.transactionId)
+                    val transaction = customerTransactionDao.getTransactionByTransactionId(status.transactionId)
                         ?: continue
 
                     val syncInfo = syncStatusDao.getSyncStatusSync(status.transactionId)
@@ -127,7 +126,7 @@ class CustomerSyncWorker @AssistedInject constructor(
             for (status in pendingDeletes) {
                 try {
                     val syncInfo = syncStatusDao.getSyncStatusSync(status.transactionId)
-                    val transaction = customerTransactionDao.getTransactionById(status.transactionId)
+                    val transaction = customerTransactionDao.getTransactionByTransactionId(status.transactionId)
 
                     if (syncInfo?.isUploaded == true) {
                         transaction?.let {

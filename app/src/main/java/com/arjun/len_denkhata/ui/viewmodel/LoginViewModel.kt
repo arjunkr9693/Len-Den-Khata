@@ -9,8 +9,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+sealed class LoginUiState {
+    object Idle : LoginUiState()
+    object InProgress : LoginUiState()
+    object Success : LoginUiState()
+    data class Error(val message: String) : LoginUiState()
+}
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -18,32 +26,35 @@ class LoginViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _illegalPhoneNumberError = MutableStateFlow("")
-    val illegalPhoneNumberError: StateFlow<String> = _illegalPhoneNumberError
+    private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
+    val uiState: StateFlow<LoginUiState> = _uiState
 
     fun login(mobileNumber: String, navController: NavHostController) {
         if (!isValidPhoneNumber(mobileNumber)) {
             return
         }
+        _uiState.update { LoginUiState.InProgress }
         viewModelScope.launch {
             val loggedIn = loginRepository.login(mobileNumber)
             if (loggedIn != null) {
-                navController.navigate("initial_data_loader")
+                _uiState.update { LoginUiState.Success }
+                navController.navigate("initial_data_loader") {
+                    popUpTo("login_screen") { inclusive = true }
+                }
             } else {
-                _illegalPhoneNumberError.value = "Login failed. Please check your number and try again."
+                _uiState.update { LoginUiState.Error("Login failed. Please check your internet.") }
             }
         }
     }
 
-    fun clearIllegalPhoneNumberError() {
-        _illegalPhoneNumberError.value = ""
+    fun clearError() {
+        _uiState.update { LoginUiState.Idle }
     }
 
     private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        val cleanedNumber = phoneNumber.replace(Regex("[^\\d+]"), "")
-
-        return if (cleanedNumber.length <= 10) {
-            _illegalPhoneNumberError.value = "Phone number must be at least 10 digits."
+        val countryCode = phoneNumber.removeSuffix(phoneNumber.takeLast(10))
+        return if (countryCode.length < 2) {
+            _uiState.update { LoginUiState.Error("Phone number must be at least 10 digits with country code.") }
             false
         } else {
             // If length is more than 10, we consider it potentially valid for login

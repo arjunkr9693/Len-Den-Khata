@@ -21,13 +21,12 @@ fun CustomerListItem(customer: CustomerEntity, onClick: (CustomerEntity) -> Unit
     )
     Card(
         modifier = Modifier
-            .clickable { onClick(customer) }
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp),
+            .padding(vertical = 8.dp, horizontal = 16.dp)
+            .clickable { onClick(customer) },
 //            .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)),
         elevation = CardDefaults.cardElevation(4.dp) // Disable default shadow
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
                     .padding(16.dp) // Padding inside the card
@@ -55,7 +54,6 @@ fun CustomerListItem(customer: CustomerEntity, onClick: (CustomerEntity) -> Unit
                     color = amountColor
                 )
             }
-        }
 
     }
 }

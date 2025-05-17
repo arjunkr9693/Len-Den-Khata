@@ -4,7 +4,6 @@ import android.util.Log
 import com.arjun.len_denkhata.data.database.SyncStatus
 import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.SyncStatusEntity
-import com.arjun.len_denkhata.data.database.customer.CustomerEntity
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.utils.CustomerSyncManager
@@ -13,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -81,17 +79,23 @@ class CustomerTransactionRepository @Inject constructor(
         return customerTransactionDao.getTransactionsByCustomerId(customerId)
     }
 
-    suspend fun deleteTransaction(transaction: CustomerTransactionEntity) {
+    suspend fun deleteTransaction(transactionId: Long) {
         try {
-            customerTransactionDao.update(transaction.copy(isDeleted = true))
-            customerRepository.updateCustomerBalance(transaction.customerId, transaction.amount, isCredit = !transaction.isCredit)
-            if (transaction.isMadeByOwner) {
-                customerSyncManager.enqueueTransactionForDelete(transaction.id)
+            val transaction = customerTransactionDao.getTransactionByTransactionId(transactionId)
+            if (transaction != null) {
+                customerTransactionDao.update(transaction.copy(isDeleted = true))
+            }
+            transaction?.let { customerRepository.updateCustomerBalance(it.customerId, transaction.amount, isCredit = !transaction.isCredit) }
+            if (transaction != null) {
+                if (transaction.isMadeByOwner) {
+                    customerSyncManager.enqueueTransactionForDelete(transaction.id)
+                }
             }
         } catch (e: Exception) {
             Log.e("CustomerTransactionRepo", "Error deleting transaction: ${e.message}")
         }
     }
+
     suspend fun updateTransaction(transaction: CustomerTransactionEntity, originAmount: Double) {
         try {
             val amountDifference = transaction.amount - originAmount
@@ -130,5 +134,9 @@ class CustomerTransactionRepository @Inject constructor(
 
     suspend fun getPendingSyncTransactionsSync(status: SyncStatus): List<SyncStatusEntity> {
         return syncStatusDao.getSyncStatusesByStatusSync(status)
+    }
+
+    suspend fun getTransactionByTransactionId(transactionId: Long): CustomerTransactionEntity? {
+        return customerTransactionDao.getTransactionByTransactionId(transactionId)
     }
 }

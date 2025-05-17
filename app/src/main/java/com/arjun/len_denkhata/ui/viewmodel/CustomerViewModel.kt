@@ -11,21 +11,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.Screen
+import com.arjun.len_denkhata.data.database.TransactionUiModel
 import com.arjun.len_denkhata.data.database.customer.CustomerEntity
-import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
-import com.arjun.len_denkhata.data.repository.LoginRepository
+import com.arjun.len_denkhata.data.utils.DateFormatters
+import com.arjun.len_denkhata.data.utils.toUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Date
 import javax.inject.Inject
 
 @HiltViewModel
@@ -62,17 +67,24 @@ class CustomerViewModel @Inject constructor(
     private val _contactName = MutableStateFlow("")
     val contactName: StateFlow<String> = _contactName
 
-    private val _transactionsByCustomer = MutableStateFlow<List<CustomerTransactionEntity>>(emptyList())
-    val transactionsByCustomer: StateFlow<List<CustomerTransactionEntity>> = _transactionsByCustomer
-
     private val viewModelJob = Job()
     private val uiScope = CoroutineScope(Dispatchers.Main + viewModelJob)
+
+    private val _groupedTransactions = MutableStateFlow<Map<String, List<TransactionUiModel>>>(emptyMap())
+    val groupedTransactions: StateFlow<Map<String, List<TransactionUiModel>>> = _groupedTransactions
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val _filteredGroupedTransactions = MutableStateFlow<Map<String, List<TransactionUiModel>>>(emptyMap())
+    val filteredGroupedTransactions: StateFlow<Map<String, List<TransactionUiModel>>> = _filteredGroupedTransactions
 
     init {
         Log.d("testTag", "viewModel Initialized")
         viewModelScope.launch {
             loadCustomers()
             calculateTodayDue()
+            observeSearchQuery()
         }
     }
 
@@ -136,35 +148,81 @@ class CustomerViewModel @Inject constructor(
             viewModelScope.launch {
                 customerRepository.insertCustomer(CustomerEntity(id = number, name = name, phone = number))
             }
-            viewModelScope.launch { loadCustomerBalance(customerId = number) }
+            viewModelScope.launch {
+                setSelectedCustomerById(customerId)
+            }
             // Navigate after the insertion is complete.
             navController.navigate(Screen.CustomerTransaction.createRoute(customerId))
         }
     }
 
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun observeSearchQuery() {
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(300) // Avoid recomputing too frequently
+                .distinctUntilChanged()
+                .collectLatest {
+                    filterTransactions()
+                }
+        }
+    }
+
+    private fun filterTransactions() {
+        val query = _searchQuery.value
+        val currentTransactions = _groupedTransactions.value
+
+        if (query.isEmpty()) {
+            _filteredGroupedTransactions.value = currentTransactions
+            return
+        }
+
+        val filtered = currentTransactions.mapValues { (_, transactions) ->
+            transactions.filter {
+                it.amount.toString().contains(query, ignoreCase = true) ||
+                        it.description?.contains(query, ignoreCase = true) == true
+            }
+        }.filterValues { it.isNotEmpty() }
+
+        _filteredGroupedTransactions.value = filtered
+    }
+
     fun loadTransactions(customerId: String) {
         viewModelScope.launch {
-            customerTransactionRepository.getCustomerTransactionsByCustomerId(customerId).collectLatest {
-                _transactionsByCustomer.value = it
+            customerTransactionRepository.getCustomerTransactionsByCustomerId(customerId).collectLatest { transactions ->
+                val uiTransactions = transactions.map { it.toUiModel() }
+
+                val groupedAndSorted = uiTransactions.groupBy {
+                    DateFormatters.dateGroupFormat.format(
+                        DateFormatters.fullTimestampFormat.parse(it.formattedTimestamp) ?: Date()
+                    )
+                }.toSortedMap(reverseOrder())
+
+                _groupedTransactions.value = groupedAndSorted
+                _filteredGroupedTransactions.value = groupedAndSorted // Initialize filtered with all transactions
             }
         }
     }
 
-    fun deleteTransaction(transaction: CustomerTransactionEntity, deletedAmount: Double) {
+
+    fun deleteTransaction(transactionId: Long) {
         viewModelScope.launch {
-            customerTransactionRepository.deleteTransaction(transaction)
+            customerTransactionRepository.deleteTransaction(transactionId)
         }
     }
 
-    fun loadCustomerBalance(customerId: String) {
-        viewModelScope.launch {
-            customerRepository.getCustomerById(customerId).collectLatest { customer ->
-                _selectedCustomer.value = customer
-                Log.d("testTag", customer.toString())
-                _customerOverallBalance.value = customer?.overallBalance ?: 0.0
-            }
-        }
-    }
+//    private fun loadCustomerBalance(customerId: String) {
+//        viewModelScope.launch {
+//            customerRepository.getCustomerById(customerId).collectLatest { customer ->
+//                Log.d("testTag", customer.toString())
+//                _customerOverallBalance.value = customer?.overallBalance ?: 0.0
+//            }
+//        }
+//    }
 
     fun deleteCustomer(customerEntity: CustomerEntity) {
         viewModelScope.launch {
@@ -226,5 +284,15 @@ class CustomerViewModel @Inject constructor(
         }
     }
 
+    private var selectedCustomerJob: Job? = null
 
+    fun setSelectedCustomerById(customerId: String) {
+        selectedCustomerJob?.cancel() // Cancel previous collection if running
+
+        selectedCustomerJob = viewModelScope.launch {
+            customerRepository.getCustomerById(customerId).collectLatest {
+                _selectedCustomer.value = it
+            }
+        }
+    }
 }

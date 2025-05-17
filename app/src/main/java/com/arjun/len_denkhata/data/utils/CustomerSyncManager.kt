@@ -202,7 +202,7 @@ class CustomerSyncManager @Inject constructor(
 
     private suspend fun performDelete(transactionId: Long) {
         try {
-            val firestoreId = customerTransactionDao.getTransactionById(transactionId)?.firestoreId
+            val firestoreId = customerTransactionDao.getTransactionByTransactionId(transactionId)?.firestoreId
             firestoreId?.let {
                 firestore.collection(fireStoreCustomerTransactionPath)
                     .document(it)

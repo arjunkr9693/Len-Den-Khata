@@ -23,13 +23,9 @@ fun CustomNumericKeyboard(
     onDigitClicked: (String) -> Unit,
     onClearClicked: () -> Unit,
     onBackspaceClicked: () -> Unit,
-    onDivideClicked: () -> Unit,
-    onMultiplyClicked: () -> Unit,
-    onMinusClicked: () -> Unit,
-    onPlusClicked: () -> Unit,
+    onOperatorClick: (String) -> Unit, // Unified operator callback
     onDecimalClicked: () -> Unit,
     onPercentageClicked: () -> Unit,
-    onEqualsClicked: () -> Unit,
     onMemoryPlusClicked: () -> Unit,
     onMemoryMinusClicked: () -> Unit
 ) {
@@ -120,7 +116,7 @@ fun CustomNumericKeyboard(
                     Text("9", fontSize = 24.sp)
                 }
                 Button(
-                    onClick = { onDivideClicked() },
+                    onClick = { onOperatorClick("÷") },
                     modifier = Modifier
                         .weight(1f)
                         .padding(2.dp),
@@ -154,7 +150,7 @@ fun CustomNumericKeyboard(
                     Text("6", fontSize = 24.sp)
                 }
                 Button(
-                    onClick = { onMultiplyClicked() },
+                    onClick = { onOperatorClick("×") },
                     modifier = Modifier
                         .weight(1f)
                         .padding(2.dp),
@@ -188,7 +184,7 @@ fun CustomNumericKeyboard(
                     Text("3", fontSize = 24.sp)
                 }
                 Button(
-                    onClick = { onMinusClicked() },
+                    onClick = { onOperatorClick("-") },
                     modifier = Modifier
                         .weight(1f)
                         .padding(2.dp),
@@ -222,7 +218,7 @@ fun CustomNumericKeyboard(
                     Text("%", fontSize = 24.sp)
                 }
                 Button(
-                    onClick = { onPlusClicked() }, // Reversed order: Plus is now here
+                    onClick = { onOperatorClick("+") }, // Reversed order: Plus is now here
                     modifier = Modifier
                         .weight(1f)
                         .padding(2.dp),
@@ -241,13 +237,9 @@ fun CustomNumericKeyboardPreview() {
         onDigitClicked = {},
         onClearClicked = {},
         onBackspaceClicked = {},
-        onDivideClicked = {},
-        onMultiplyClicked = {},
-        onMinusClicked = {},
-        onPlusClicked = {},
+        onOperatorClick = {},
         onDecimalClicked = {},
         onPercentageClicked = {},
-        onEqualsClicked = {},
         onMemoryPlusClicked = {},
         onMemoryMinusClicked = {}
     )

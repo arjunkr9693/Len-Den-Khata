@@ -67,4 +67,11 @@
     <string name="welcome_to_app">Welcome to the App</string>
     <string name="phoneNumberInputInstruction">Phone number should contain country code like +9101234567890</string>
     <string name="invalid_phone_number">Invalid Number</string>
+    <string name="logging_in">Loggin In</string>
+    <string name="search">Search</string>
+    <string name="search_amount_description">Search by Amount, Description</string>
+    <string name="confirm_deletion">Delete</string>
+    <string name="are_you_sure_delete_transaction">Are you sure to delete</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
 </resources>

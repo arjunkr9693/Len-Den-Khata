@@ -21,7 +21,7 @@ interface CustomerTransactionDao {
     fun getTransactionsByCustomerId(customerId: String): Flow<List<CustomerTransactionEntity>>
 
     @Query("SELECT * FROM customerTransactions WHERE id = :transactionId")
-    fun getTransactionById(transactionId: Long): CustomerTransactionEntity?
+    suspend fun getTransactionByTransactionId(transactionId: Long): CustomerTransactionEntity?
 
     @Query("SELECT * FROM customerTransactions")
     fun getTransactionsByOwnerId(): Flow<List<CustomerTransactionEntity>>
