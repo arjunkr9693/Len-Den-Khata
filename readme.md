@@ -11,16 +11,16 @@ $\color{lightgreen}{Features:}$
     - **Summary Reports**: Generate summaries to visualize total owed, owed to you, and net balance.
     - **Secure Local Storage**: Data is stored locally using Room Database for privacy and quick access.
 
-$\color{lightgreen}{Screenshots:}$
-<!-- <p>
-  <img src="https://via.placeholder.com/300x600/5C5C5C/FFFFFF?text=Home+Screen" width="45%" />
-  <img src="https://via.placeholder.com/300x600/5C5C5C/FFFFFF?text=Add+Entry" width="45%" />
-</p>
+$\color{lightgreen}{\text{Screenshots:}}$
 
-<p>
-  <img src="https://via.placeholder.com/300x600/5C5C5C/FFFFFF?text=Transaction+History" width="45%" />
-  <img src="https://via.placeholder.com/300x600/5C5C5C/FFFFFF?text=Summary+Report" width="45%" />
-</p> -->
+<p align="left">
+<img src="https://github.com/user-attachments/assets/dcf75a32-b61a-42be-9da5-380e43e46937" width="45%" hspace="10">
+<img src="https://github.com/user-attachments/assets/2392fb29-d50a-43b0-a9c0-922f23a9e991" width="45%">
+</p>
+<p align="left">
+<img src="https://github.com/user-attachments/assets/4e7d134a-a13b-443c-9bb6-880b91a8948b" width="45%" hspace="10">
+<img src="https://github.com/user-attachments/assets/15df2175-c403-40d8-a36e-50af288d3a2e" width="45%">
+</p>
 
 $\color{lightgreen}{TechStacks:}$
 
@@ -35,6 +35,7 @@ $\color{lightgreen}{Installation:}$
 ```
     git clone https://github.com/arjunkr9693/Len-Den-Khata.git
 ```
+
 
 $\color{lightgreen}{How \ It \ Works:}$
 
