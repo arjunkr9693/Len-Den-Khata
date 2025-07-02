@@ -1,24 +1,40 @@
 package com.arjun.len_denkhata.ui.components
 
-import android.view.Gravity
 import android.widget.EditText
-import androidx.appcompat.widget.AppCompatEditText
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.appcompat.widget.AppCompatEditText
+import android.view.Gravity
+import androidx.compose.runtime.mutableStateOf
 
 @Composable
 fun CustomAmountTextField(
     value: String,
     modifier: Modifier = Modifier,
-    onFocusChanged: (Boolean) -> Unit
+    onFocusChanged: (Boolean) -> Unit,
+    shouldClearFocus: Boolean = false, // Add this parameter
+    onFocusCleared: () -> Unit = {} // Add this callback
 ) {
+    val editTextRef = remember { mutableStateOf<EditText?>(null) }
+
+    // Clear focus when requested
+    LaunchedEffect(shouldClearFocus) {
+        if (shouldClearFocus) {
+            editTextRef.value?.clearFocus()
+            onFocusCleared()
+        }
+    }
+
     AndroidView(
         modifier = modifier
             .fillMaxWidth(0.9f)
@@ -42,6 +58,8 @@ fun CustomAmountTextField(
                 setOnFocusChangeListener { _, hasFocus ->
                     onFocusChanged(hasFocus)
                 }
+
+                editTextRef.value = this
             }
         },
         update = { view: EditText ->

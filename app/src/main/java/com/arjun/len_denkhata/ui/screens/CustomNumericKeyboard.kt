@@ -4,12 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,208 +22,148 @@ fun CustomNumericKeyboard(
     onDigitClicked: (String) -> Unit,
     onClearClicked: () -> Unit,
     onBackspaceClicked: () -> Unit,
-    onOperatorClick: (String) -> Unit, // Unified operator callback
+    onOperatorClick: (String) -> Unit,
     onDecimalClicked: () -> Unit,
     onPercentageClicked: () -> Unit,
     onMemoryPlusClicked: () -> Unit,
     onMemoryMinusClicked: () -> Unit
 ) {
+    // Memoize button colors to avoid recomputation
+    val operatorButtonColors =
+        ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+
+
+    val functionButtonColors =
+        ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+
+
     Surface(
-        color = Color.White, // Background color for the keyboard
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.padding(8.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // First row: C, M+, M-, Backspace
             Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onClearClicked() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("C", fontSize = 20.sp)
-                }
-                Button(
-                    onClick = { onMemoryPlusClicked() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("M+", fontSize = 20.sp)
-                }
-                Button(
-                    onClick = { onMemoryMinusClicked() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("M-", fontSize = 20.sp)
-                }
+                KeyboardButton(
+                    text = "C",
+                    onClick = onClearClicked,
+                    modifier = Modifier.weight(1f).padding(2.dp),
+                    colors = functionButtonColors
+                )
+                KeyboardButton(
+                    text = "M+",
+                    onClick = onMemoryPlusClicked,
+                    modifier = Modifier.weight(1f).padding(2.dp),
+                    colors = functionButtonColors
+                )
+                KeyboardButton(
+                    text = "M-",
+                    onClick = onMemoryMinusClicked,
+                    modifier = Modifier.weight(1f).padding(2.dp),
+                    colors = functionButtonColors
+                )
 
                 // Backspace button with long press handling
-                val backspaceInteractionSource = remember { MutableInteractionSource() }
-                val isBackspacePressed by backspaceInteractionSource.collectIsPressedAsState()
+                BackspaceButton(
+                    onBackspaceClicked = onBackspaceClicked,
+                    modifier = Modifier.weight(1f).padding(2.dp),
+                    colors = functionButtonColors
+                )
+            }
 
-                Button(
-                    onClick = { onBackspaceClicked() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                    interactionSource = backspaceInteractionSource
-                ) {
-                    Text("⌫", fontSize = 20.sp)
-                }
+            // Second row: 7, 8, 9, ÷
+            Row(modifier = Modifier.fillMaxWidth()) {
+                KeyboardButton("7", { onDigitClicked("7") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("8", { onDigitClicked("8") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("9", { onDigitClicked("9") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("÷", { onOperatorClick("÷") }, Modifier.weight(1f).padding(2.dp), operatorButtonColors)
+            }
 
-                // Effect to handle continuous backspace when pressed
-                LaunchedEffect(isBackspacePressed) {
-                    if (isBackspacePressed) {
-                        // Initial delay before continuous deletion starts
-                        delay(500)
-                        while (isBackspacePressed) {
-                            onBackspaceClicked()
-                            // Delay between each deletion when held
-                            delay(50)
-                        }
-                    }
-                }
-            }
+            // Third row: 4, 5, 6, ×
             Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onDigitClicked("7") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("7", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("8") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("8", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("9") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("9", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onOperatorClick("÷") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("÷", fontSize = 24.sp)
-                }
+                KeyboardButton("4", { onDigitClicked("4") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("5", { onDigitClicked("5") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("6", { onDigitClicked("6") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("×", { onOperatorClick("×") }, Modifier.weight(1f).padding(2.dp), operatorButtonColors)
             }
+
+            // Fourth row: 1, 2, 3, -
             Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onDigitClicked("4") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("4", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("5") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("5", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("6") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("6", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onOperatorClick("×") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("×", fontSize = 24.sp)
-                }
+                KeyboardButton("1", { onDigitClicked("1") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("2", { onDigitClicked("2") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("3", { onDigitClicked("3") }, Modifier.weight(1f).padding(2.dp))
+                KeyboardButton("-", { onOperatorClick("-") }, Modifier.weight(1f).padding(2.dp), operatorButtonColors)
             }
+
+            // Fifth row: 0, ., %, +
             Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onDigitClicked("1") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("1", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("2") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("2", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDigitClicked("3") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("3", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onOperatorClick("-") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("-", fontSize = 24.sp)
-                }
+                KeyboardButton("0", { onDigitClicked("0") }, Modifier.weight(1.5f).padding(2.dp))
+                KeyboardButton(".", onDecimalClicked, Modifier.weight(0.75f).padding(2.dp))
+                KeyboardButton("%", onPercentageClicked, Modifier.weight(0.75f).padding(2.dp), operatorButtonColors)
+                KeyboardButton("+", { onOperatorClick("+") }, Modifier.weight(1f).padding(2.dp), operatorButtonColors)
             }
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onDigitClicked("0") },
-                    modifier = Modifier
-                        .weight(1.5f)
-                        .padding(2.dp), // Reduced weight for smaller zero
-                ) {
-                    Text("0", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onDecimalClicked() },
-                    modifier = Modifier
-                        .weight(0.75f)
-                        .padding(2.dp), // Adjusted weight
-                ) {
-                    Text(".", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onPercentageClicked() },
-                    modifier = Modifier
-                        .weight(0.75f)
-                        .padding(2.dp), // Added percentage button
-                ) {
-                    Text("%", fontSize = 24.sp)
-                }
-                Button(
-                    onClick = { onOperatorClick("+") }, // Reversed order: Plus is now here
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                ) {
-                    Text("+", fontSize = 24.sp)
-                }
+        }
+    }
+}
+
+/**
+ * Reusable keyboard button component to reduce code duplication
+ */
+@Composable
+private fun KeyboardButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.buttonColors()
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = colors
+    ) {
+        Text(text, fontSize = 24.sp)
+    }
+}
+
+/**
+ * Specialized backspace button with long press functionality
+ */
+@Composable
+private fun BackspaceButton(
+    onBackspaceClicked: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.buttonColors()
+) {
+    val backspaceInteractionSource = remember { MutableInteractionSource() }
+    val isBackspacePressed by backspaceInteractionSource.collectIsPressedAsState()
+
+    Button(
+        onClick = onBackspaceClicked,
+        modifier = modifier,
+        interactionSource = backspaceInteractionSource,
+        colors = colors
+    ) {
+        Text("⌫", fontSize = 20.sp)
+    }
+
+    // Effect to handle continuous backspace when pressed
+    LaunchedEffect(isBackspacePressed) {
+        if (isBackspacePressed) {
+            // Initial delay before continuous deletion starts
+            delay(500)
+            while (isBackspacePressed) {
+                onBackspaceClicked()
+                // Delay between each deletion when held
+                delay(50)
             }
         }
     }

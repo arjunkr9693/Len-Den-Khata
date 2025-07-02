@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.ui.screens.customer
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -8,19 +9,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -33,8 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
-import com.arjun.len_denkhata.data.utils.calculateExpression
-import com.arjun.len_denkhata.data.utils.isExpression
+import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.components.DatePickerModal
@@ -53,45 +42,60 @@ fun CustomerTransactionEntryScreen(
     isEditing: Boolean = false,
     transactionId: Long = -1L
 ) {
-    val customerTransactionEntity by viewModel.transactionForEdit.collectAsState()
+    // Initialize keyboard handler - reuse same instance
+    val keyboardHandler = remember { KeyboardEventHandler() }
 
-    LaunchedEffect(transactionId) {
-        if (transactionId != -1L && isEditing) {
-            viewModel.loadTransactionByTransactionId(transactionId)
-        }
-    }
-
+    // State variables
     var amountTextFieldValue by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var calculatedResult by remember { mutableStateOf("") }
     var showCustomKeyboard by remember { mutableStateOf(false) }
     var amountFieldFocused by remember { mutableStateOf(false) }
     var descriptionFieldFocused by remember { mutableStateOf(false) }
+    var clearAmountFieldFocus by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-
+    // Date handling
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(Date()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
+    val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val customerTransactionEntity by viewModel.transactionForEdit.collectAsState()
 
-    // Watch for changes to customerTransactionEntity and update UI accordingly
-    LaunchedEffect(customerTransactionEntity) {
-        customerTransactionEntity?.let { entity ->
-            amountTextFieldValue = entity.amount.toString()
-            description = entity.description ?: ""
-            selectedDate = entity.date
-        } ?: run {
-            if (!isEditing) {
-                amountTextFieldValue = ""
-                description = ""
-                selectedDate = Date()
+    // Memoized calculation prefix
+    val calculationPrefix = remember { context.getString(R.string.calculated_amount) }
+
+    // Load existing transaction for editing
+    LaunchedEffect(isEditing, transactionId) {
+        if (isEditing && transactionId != -1L) {
+            viewModel.loadTransactionByTransactionId(transactionId)
+            customerTransactionEntity?.let { transaction ->
+                amountTextFieldValue = transaction.amount.toString()
+                description = transaction.description ?: ""
+
+                // Extract the Date part from the transaction's timestamp
+                val calendar = Calendar.getInstance().apply {
+                    timeInMillis = transaction.date.time
+                }
+                val year = calendar.get(Calendar.YEAR)
+                val month = calendar.get(Calendar.MONTH)
+                val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
+
+                // Create a new Date object with only the date components
+                val extractedDate = Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.time
+
+                selectedDate = extractedDate
+                keyboardHandler.clearCache() // Clear cache when loading existing transaction
             }
         }
     }
 
+    // Handle keyboard visibility
     LaunchedEffect(amountFieldFocused) {
         showCustomKeyboard = amountFieldFocused
     }
@@ -99,26 +103,30 @@ fun CustomerTransactionEntryScreen(
     // Handle focus and keyboard visibility
     LaunchedEffect(descriptionFieldFocused, amountFieldFocused) {
         if (amountFieldFocused) {
-            if(descriptionFieldFocused) {
+            if (descriptionFieldFocused) {
                 keyboardController?.hide()
                 delay(200)
                 showCustomKeyboard = true
-            }else {
+            } else {
                 showCustomKeyboard = true
             }
-        }
-        else if(descriptionFieldFocused) {
+        } else if (descriptionFieldFocused) {
             if (showCustomKeyboard) {
                 showCustomKeyboard = false
                 delay(200)
-            }else {
+            } else {
                 keyboardController?.show()
             }
-
         }
     }
 
+    // Add BackHandler to handle back button press when custom keyboard is visible
+    BackHandler(enabled = showCustomKeyboard) {
+        showCustomKeyboard = false
+        clearAmountFieldFocus = true
+    }
 
+    // Date picker dialog
     if (showDatePicker) {
         DatePickerModal(
             onDateSelected = { selectedMillis ->
@@ -134,6 +142,43 @@ fun CustomerTransactionEntryScreen(
             },
             onDismiss = { showDatePicker = false }
         )
+    }
+
+    // Optimized calculation function
+    fun updateCalculation(newValue: String) {
+        calculatedResult = keyboardHandler.calculateWithCaching(newValue, calculationPrefix)
+    }
+
+    // Save transaction function
+    fun saveTransaction() {
+        if (dateError == null) {
+            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
+
+            viewModel.saveTransaction(
+                customerId.toString(),
+                finalAmount,
+                description,
+                transactionType == "You Got",
+                date = selectedDate,
+                navController
+            )
+        }
+    }
+
+    // Update transaction function
+    fun updateTransaction() {
+        if (dateError == null && customerTransactionEntity != null) {
+            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
+
+            viewModel.updateTransaction(
+                originalAmount = customerTransactionEntity!!.amount,
+                amount = finalAmount,
+                description = description,
+                customerTransaction = customerTransactionEntity!!,
+                navController = navController,
+                date = selectedDate
+            )
+        }
     }
 
     Scaffold(
@@ -158,10 +203,14 @@ fun CustomerTransactionEntryScreen(
             ) {
                 CustomAmountTextField(
                     value = amountTextFieldValue,
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     onFocusChanged = { focused ->
                         amountFieldFocused = focused
+                    },
+                    shouldClearFocus = clearAmountFieldFocus,
+                    onFocusCleared = {
+                        clearAmountFieldFocus = false
+                        amountFieldFocused = false
                     }
                 )
 
@@ -234,32 +283,10 @@ fun CustomerTransactionEntryScreen(
 
                 Button(
                     onClick = {
-                        if (dateError == null) {
-                            val finalAmount = if (calculatedResult.isNotEmpty()) {
-                                calculateExpression(amountTextFieldValue)
-                            } else {
-                                amountTextFieldValue.toDoubleOrNull() ?: 0.0
-                            }
-
-                            if (isEditing && customerTransactionEntity != null) {
-                                viewModel.updateTransaction(
-                                    originalAmount = customerTransactionEntity!!.amount,
-                                    amount = finalAmount,
-                                    description = description,
-                                    customerTransaction = customerTransactionEntity!!,
-                                    navController = navController,
-                                    date = selectedDate
-                                )
-                            } else {
-                                viewModel.saveTransaction(
-                                    customerId.toString(),
-                                    finalAmount,
-                                    description,
-                                    transactionType == "You Got",
-                                    date = selectedDate,
-                                    navController
-                                )
-                            }
+                        if (isEditing) {
+                            updateTransaction()
+                        } else {
+                            saveTransaction()
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -279,46 +306,36 @@ fun CustomerTransactionEntryScreen(
             ) {
                 CustomNumericKeyboard(
                     onDigitClicked = { digit ->
-                        val newText = amountTextFieldValue + digit
-                        amountTextFieldValue = newText
-                        if (isExpression(newText)) {
-                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                        }
+                        amountTextFieldValue = keyboardHandler.handleDigitInput(amountTextFieldValue, digit)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onClearClicked = {
                         amountTextFieldValue = ""
                         calculatedResult = ""
+                        keyboardHandler.clearCache()
                     },
                     onBackspaceClicked = {
-                        if (amountTextFieldValue.isNotEmpty()) {
-                            val newText = amountTextFieldValue.dropLast(1)
-                            amountTextFieldValue = newText
-                            if (isExpression(newText)) {
-                                calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                            } else {
-                                calculatedResult = ""
-                            }
-                        }
+                        amountTextFieldValue = keyboardHandler.handleBackspace(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
-                    onOperatorClick = {
-                        val newText = "$amountTextFieldValue$it"
-                        amountTextFieldValue = newText
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
+                    onOperatorClick = { operator ->
+                        amountTextFieldValue = keyboardHandler.handleOperatorInput(amountTextFieldValue, operator)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onDecimalClicked = {
-                        val newText = "$amountTextFieldValue."
-                        amountTextFieldValue = newText
-                        if (isExpression(newText)) {
-                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                        }
+                        amountTextFieldValue = keyboardHandler.handleDecimalInput(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onPercentageClicked = {
-                        val newText = "$amountTextFieldValue%"
-                        amountTextFieldValue = newText
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
+                        amountTextFieldValue = keyboardHandler.handlePercentageInput(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
-                    onMemoryMinusClicked = {},
-                    onMemoryPlusClicked = {}
+                    onMemoryMinusClicked = {
+                        // Implement memory functionality if needed
+                    },
+                    onMemoryPlusClicked = {
+                        // Implement memory functionality if needed
+                    }
                 )
             }
         }

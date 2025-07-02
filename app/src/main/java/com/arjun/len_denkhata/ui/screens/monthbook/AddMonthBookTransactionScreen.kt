@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.ui.screens.monthbook
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -24,8 +25,7 @@ import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
-import com.arjun.len_denkhata.data.utils.calculateExpression
-import com.arjun.len_denkhata.data.utils.isExpression
+import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
 import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
@@ -43,6 +43,9 @@ fun AddMonthBookTransactionScreen(
     isEditing: Boolean = false,
     transactionId: Long = 0L
 ) {
+    // Initialize keyboard handler - reuse same instance
+    val keyboardHandler = remember { KeyboardEventHandler() }
+
     // State variables
     var amountTextFieldValue by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -52,6 +55,7 @@ fun AddMonthBookTransactionScreen(
     var descriptionFieldFocused by remember { mutableStateOf(false) }
     var selectedExpenseCategory by remember { mutableStateOf(MonthBookExpenseCategory.GENERAL) }
     var existingTransaction by remember { mutableStateOf<MonthBookTransactionEntity?>(null) }
+    var clearAmountFieldFocus by remember { mutableStateOf(false) }
 
     // Date handling
     var showDatePicker by remember { mutableStateOf(false) }
@@ -61,6 +65,9 @@ fun AddMonthBookTransactionScreen(
 
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Memoized calculation prefix to avoid string creation on every recomposition
+    val calculationPrefix = remember { context.getString(R.string.calculated_amount) }
 
     // Load existing transaction for editing
     LaunchedEffect(isEditing, transactionId) {
@@ -81,11 +88,12 @@ fun AddMonthBookTransactionScreen(
 
                 // Create a new Date object with only the date components
                 val extractedDate = Calendar.getInstance().apply {
-                    set(year, month, dayOfMonth, 0, 0, 0) // Set time to the beginning of the day
+                    set(year, month, dayOfMonth, 0, 0, 0)
                     set(Calendar.MILLISECOND, 0)
                 }.time
 
                 selectedDate = extractedDate
+                keyboardHandler.clearCache() // Clear cache when loading existing transaction
             }
         }
     }
@@ -115,6 +123,12 @@ fun AddMonthBookTransactionScreen(
         }
     }
 
+    // Add BackHandler to handle back button press when custom keyboard is visible
+    BackHandler(enabled = showCustomKeyboard) {
+        showCustomKeyboard = false
+        clearAmountFieldFocus = true
+    }
+
     // Date picker dialog
     if (showDatePicker) {
         DatePickerModal(
@@ -133,14 +147,15 @@ fun AddMonthBookTransactionScreen(
         )
     }
 
+    // Optimized calculation function
+    fun updateCalculation(newValue: String) {
+        calculatedResult = keyboardHandler.calculateWithCaching(newValue, calculationPrefix)
+    }
+
     // Save transaction function
     fun saveTransaction() {
         if (dateError == null) {
-            val finalAmount = if (calculatedResult.isNotEmpty()) {
-                calculateExpression(amountTextFieldValue)
-            } else {
-                amountTextFieldValue.toDoubleOrNull() ?: 0.0
-            }
+            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
 
             viewModel.addTransaction(
                 amount = finalAmount,
@@ -156,11 +171,7 @@ fun AddMonthBookTransactionScreen(
     // Update transaction function
     fun updateTransaction() {
         if (dateError == null && existingTransaction != null) {
-            val finalAmount = if (calculatedResult.isNotEmpty()) {
-                calculateExpression(amountTextFieldValue)
-            } else {
-                amountTextFieldValue.toDoubleOrNull() ?: 0.0
-            }
+            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
 
             viewModel.updateTransaction(
                 existingTransaction = existingTransaction!!,
@@ -177,9 +188,8 @@ fun AddMonthBookTransactionScreen(
     Scaffold(
         topBar = {
             CustomTopBarWithIcon(
-                title = if (transactionType == MonthBookTransactionType.INCOME) stringResource(R.string.add_income) else stringResource(
-                    R.string.add_expense
-                ),
+                title = if (transactionType == MonthBookTransactionType.INCOME)
+                    stringResource(R.string.add_income) else stringResource(R.string.add_expense),
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -196,10 +206,14 @@ fun AddMonthBookTransactionScreen(
             ) {
                 CustomAmountTextField(
                     value = amountTextFieldValue,
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     onFocusChanged = { focused ->
                         amountFieldFocused = focused
+                    },
+                    shouldClearFocus = clearAmountFieldFocus,
+                    onFocusCleared = {
+                        clearAmountFieldFocus = false
+                        amountFieldFocused = false
                     }
                 )
 
@@ -315,46 +329,36 @@ fun AddMonthBookTransactionScreen(
             ) {
                 CustomNumericKeyboard(
                     onDigitClicked = { digit ->
-                        val newText = amountTextFieldValue + digit
-                        amountTextFieldValue = newText
-                        if (isExpression(newText)) {
-                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                        }
+                        amountTextFieldValue = keyboardHandler.handleDigitInput(amountTextFieldValue, digit)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onClearClicked = {
                         amountTextFieldValue = ""
                         calculatedResult = ""
+                        keyboardHandler.clearCache()
                     },
                     onBackspaceClicked = {
-                        if (amountTextFieldValue.isNotEmpty()) {
-                            val newText = amountTextFieldValue.dropLast(1)
-                            amountTextFieldValue = newText
-                            if (isExpression(newText)) {
-                                calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                            } else {
-                                calculatedResult = ""
-                            }
-                        }
+                        amountTextFieldValue = keyboardHandler.handleBackspace(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
-                    onOperatorClick = {
-                        val newText = "$amountTextFieldValue$it"
-                        amountTextFieldValue = newText
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
+                    onOperatorClick = { operator ->
+                        amountTextFieldValue = keyboardHandler.handleOperatorInput(amountTextFieldValue, operator)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onDecimalClicked = {
-                        val newText = "$amountTextFieldValue."
-                        amountTextFieldValue = newText
-                        if (isExpression(newText)) {
-                            calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
-                        }
+                        amountTextFieldValue = keyboardHandler.handleDecimalInput(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
                     onPercentageClicked = {
-                        val newText = "$amountTextFieldValue%"
-                        amountTextFieldValue = newText
-                        calculatedResult = context.getString(R.string.calculated_amount) + calculateExpression(newText)
+                        amountTextFieldValue = keyboardHandler.handlePercentageInput(amountTextFieldValue)
+                        updateCalculation(amountTextFieldValue)
                     },
-                    onMemoryMinusClicked = {},
-                    onMemoryPlusClicked = {}
+                    onMemoryMinusClicked = {
+                        // Implement memory functionality if needed
+                    },
+                    onMemoryPlusClicked = {
+                        // Implement memory functionality if needed
+                    }
                 )
             }
         }
