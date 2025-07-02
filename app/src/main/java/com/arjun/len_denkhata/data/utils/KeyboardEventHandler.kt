@@ -1,5 +1,7 @@
 package com.arjun.len_denkhata.data.utils
 
+import java.math.BigDecimal
+
 /**
  * Handles keyboard input for mathematical expressions, including digits, operators,
  * decimals, and percentages, with caching for performance.
@@ -14,10 +16,9 @@ class KeyboardEventHandler {
     private var lastResult = ""
 
     /**
-     * Handles digit input, preventing excessive length and leading zeros.
+     * Handles digit input, allowing arbitrary length and preventing leading zeros.
      */
     fun handleDigitInput(currentValue: String, digit: String): String {
-        if (currentValue.length >= 20) return currentValue
         if (currentValue == "0" && digit != ".") return digit
         return currentValue + digit
     }
@@ -144,9 +145,13 @@ class KeyboardEventHandler {
      */
     fun getFinalAmount(currentValue: String, calculatedResult: String): Double {
         return if (calculatedResult.isNotEmpty() && shouldShowCalculation(currentValue)) {
-            ExpressionCalculator.calculateExpressionLeftToRight(currentValue)
+            ExpressionCalculator.calculateExpressionLeftToRight(currentValue).toDouble()
         } else {
-            currentValue.toDoubleOrNull() ?: 0.0
+            try {
+                BigDecimal(currentValue).toDouble()
+            } catch (e: NumberFormatException) {
+                0.0
+            }
         }
     }
 

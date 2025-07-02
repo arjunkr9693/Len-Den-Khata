@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -23,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
-import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.components.DatePickerModal
@@ -42,13 +40,15 @@ fun CustomerTransactionEntryScreen(
     isEditing: Boolean = false,
     transactionId: Long = -1L
 ) {
-    // Initialize keyboard handler - reuse same instance
-    val keyboardHandler = remember { KeyboardEventHandler() }
+    // Observe ViewModel state
+    val amountTextFieldValue by viewModel.amountTextFieldValue.collectAsState()
+    val calculatedResult by viewModel.calculatedResult.collectAsState()
+    val description by viewModel.description.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val dateError by viewModel.dateError.collectAsState()
+    val customerTransactionEntity by viewModel.transactionForEdit.collectAsState()
 
-    // State variables
-    var amountTextFieldValue by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var calculatedResult by remember { mutableStateOf("") }
+    // State for keyboard visibility
     var showCustomKeyboard by remember { mutableStateOf(false) }
     var amountFieldFocused by remember { mutableStateOf(false) }
     var descriptionFieldFocused by remember { mutableStateOf(false) }
@@ -56,44 +56,9 @@ fun CustomerTransactionEntryScreen(
 
     // Date handling
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(Date()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
-    var dateError by remember { mutableStateOf<String?>(null) }
 
-    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val customerTransactionEntity by viewModel.transactionForEdit.collectAsState()
-
-    // Memoized calculation prefix
-    val calculationPrefix = remember { context.getString(R.string.calculated_amount) }
-
-    // Load existing transaction for editing
-    LaunchedEffect(isEditing, transactionId) {
-        if (isEditing && transactionId != -1L) {
-            viewModel.loadTransactionByTransactionId(transactionId)
-            customerTransactionEntity?.let { transaction ->
-                amountTextFieldValue = transaction.amount.toString()
-                description = transaction.description ?: ""
-
-                // Extract the Date part from the transaction's timestamp
-                val calendar = Calendar.getInstance().apply {
-                    timeInMillis = transaction.date.time
-                }
-                val year = calendar.get(Calendar.YEAR)
-                val month = calendar.get(Calendar.MONTH)
-                val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
-
-                // Create a new Date object with only the date components
-                val extractedDate = Calendar.getInstance().apply {
-                    set(year, month, dayOfMonth, 0, 0, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.time
-
-                selectedDate = extractedDate
-                keyboardHandler.clearCache() // Clear cache when loading existing transaction
-            }
-        }
-    }
 
     // Handle keyboard visibility
     LaunchedEffect(amountFieldFocused) {
@@ -131,54 +96,12 @@ fun CustomerTransactionEntryScreen(
         DatePickerModal(
             onDateSelected = { selectedMillis ->
                 selectedMillis?.let { millis ->
-                    val newDate = Date(millis)
-                    if (newDate.after(Date())) {
-                        dateError = context.getString(R.string.date_error_while_choosing)
-                    } else {
-                        dateError = null
-                        selectedDate = newDate
-                    }
+                    viewModel.updateDate(Date(millis))
                 }
+                showDatePicker = false
             },
             onDismiss = { showDatePicker = false }
         )
-    }
-
-    // Optimized calculation function
-    fun updateCalculation(newValue: String) {
-        calculatedResult = keyboardHandler.calculateWithCaching(newValue, calculationPrefix)
-    }
-
-    // Save transaction function
-    fun saveTransaction() {
-        if (dateError == null) {
-            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
-
-            viewModel.saveTransaction(
-                customerId.toString(),
-                finalAmount,
-                description,
-                transactionType == "You Got",
-                date = selectedDate,
-                navController
-            )
-        }
-    }
-
-    // Update transaction function
-    fun updateTransaction() {
-        if (dateError == null && customerTransactionEntity != null) {
-            val finalAmount = keyboardHandler.getFinalAmount(amountTextFieldValue, calculatedResult)
-
-            viewModel.updateTransaction(
-                originalAmount = customerTransactionEntity!!.amount,
-                amount = finalAmount,
-                description = description,
-                customerTransaction = customerTransactionEntity!!,
-                navController = navController,
-                date = selectedDate
-            )
-        }
     }
 
     Scaffold(
@@ -228,7 +151,7 @@ fun CustomerTransactionEntryScreen(
 
                 OutlinedTextField(
                     value = description,
-                    onValueChange = { description = it },
+                    onValueChange = { viewModel.updateDescription(it) },
                     label = { Text(stringResource(R.string.description)) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -270,9 +193,9 @@ fun CustomerTransactionEntryScreen(
                     },
                     isError = dateError != null,
                     supportingText = {
-                        if (dateError != null) {
+                        dateError?.let {
                             Text(
-                                text = dateError!!,
+                                text = it,
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
@@ -283,10 +206,18 @@ fun CustomerTransactionEntryScreen(
 
                 Button(
                     onClick = {
-                        if (isEditing) {
-                            updateTransaction()
+                        if (isEditing && customerTransactionEntity != null) {
+                            viewModel.updateTransaction(
+                                originalAmount = customerTransactionEntity!!.amount,
+                                customerTransaction = customerTransactionEntity!!,
+                                navController = navController
+                            )
                         } else {
-                            saveTransaction()
+                            viewModel.saveTransaction(
+                                customerId = customerId.toString(),
+                                isCredit = transactionType == "You Got",
+                                navController = navController
+                            )
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -306,29 +237,22 @@ fun CustomerTransactionEntryScreen(
             ) {
                 CustomNumericKeyboard(
                     onDigitClicked = { digit ->
-                        amountTextFieldValue = keyboardHandler.handleDigitInput(amountTextFieldValue, digit)
-                        updateCalculation(amountTextFieldValue)
+                        viewModel.handleDigitInput(digit)
                     },
                     onClearClicked = {
-                        amountTextFieldValue = ""
-                        calculatedResult = ""
-                        keyboardHandler.clearCache()
+                        viewModel.clearInput()
                     },
                     onBackspaceClicked = {
-                        amountTextFieldValue = keyboardHandler.handleBackspace(amountTextFieldValue)
-                        updateCalculation(amountTextFieldValue)
+                        viewModel.handleBackspace()
                     },
                     onOperatorClick = { operator ->
-                        amountTextFieldValue = keyboardHandler.handleOperatorInput(amountTextFieldValue, operator)
-                        updateCalculation(amountTextFieldValue)
+                        viewModel.handleOperatorInput(operator)
                     },
                     onDecimalClicked = {
-                        amountTextFieldValue = keyboardHandler.handleDecimalInput(amountTextFieldValue)
-                        updateCalculation(amountTextFieldValue)
+                        viewModel.handleDecimalInput()
                     },
                     onPercentageClicked = {
-                        amountTextFieldValue = keyboardHandler.handlePercentageInput(amountTextFieldValue)
-                        updateCalculation(amountTextFieldValue)
+                        viewModel.handlePercentageInput()
                     },
                     onMemoryMinusClicked = {
                         // Implement memory functionality if needed

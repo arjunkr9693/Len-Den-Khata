@@ -1,5 +1,8 @@
 package com.arjun.len_denkhata.data.utils
 
+import java.math.BigDecimal
+import java.math.RoundingMode
+
 /**
  * Handles mathematical expression evaluation with left-to-right processing,
  * percentage calculations based on the previous number, and operator precedence.
@@ -44,25 +47,25 @@ object ExpressionCalculator {
     /**
      * Calculates the mathematical expression left-to-right with operator precedence.
      * Handles percentages based on the previous number (e.g., 100 + 3% = 100 + (100 * 0.03)).
-     * Returns intermediate result if the expression ends with an operator.
+     * Returns result as BigDecimal for precision.
      */
-    fun calculateExpressionLeftToRight(expression: String): Double {
-        if (expression.isBlank()) return 0.0
+    fun calculateExpressionLeftToRight(expression: String): BigDecimal {
+        if (expression.isBlank()) return BigDecimal.ZERO
 
         try {
             val sanitizedExpression = sanitizeExpression(expression)
-            if (!isValidExpressionLeftToRight(sanitizedExpression)) return 0.0
+            if (!isValidExpressionLeftToRight(sanitizedExpression)) return BigDecimal.ZERO
             return evaluateExpressionLeftToRight(sanitizedExpression)
         } catch (e: Exception) {
-            return 0.0
+            return BigDecimal.ZERO
         }
     }
 
     /**
-     * Maintains backward compatibility by calling the left-to-right calculator.
+     * Maintains backward compatibility by returning Double.
      */
     fun calculateExpression(expression: String): Double {
-        return calculateExpressionLeftToRight(expression)
+        return calculateExpressionLeftToRight(expression).toDouble()
     }
 
     /**
@@ -125,20 +128,25 @@ object ExpressionCalculator {
 
     /**
      * Evaluates the expression left-to-right, respecting * and / precedence.
+     * Uses BigDecimal for precise arithmetic with large numbers.
      * Percentages are calculated using the previous number (e.g., 100 + 3% = 100 + (100 * 0.03)).
      * Returns intermediate result if the expression ends with an operator.
      */
-    private fun evaluateExpressionLeftToRight(expression: String): Double {
-        if (expression.isEmpty()) return 0.0
+    private fun evaluateExpressionLeftToRight(expression: String): BigDecimal {
+        if (expression.isEmpty()) return BigDecimal.ZERO
 
-        val numbers = mutableListOf<Double>()
+        val numbers = mutableListOf<BigDecimal>()
         val operators = mutableListOf<Char>()
         var currentNumber = StringBuilder()
         val endsWithOperator = expression.last() in "+-*/".toCharArray()
 
         fun processCurrentNumber() {
             if (currentNumber.isNotEmpty()) {
-                numbers.add(currentNumber.toString().toDoubleOrNull() ?: 0.0)
+                try {
+                    numbers.add(BigDecimal(currentNumber.toString()))
+                } catch (e: NumberFormatException) {
+                    numbers.add(BigDecimal.ZERO)
+                }
                 currentNumber.clear()
             }
         }
@@ -152,10 +160,14 @@ object ExpressionCalculator {
                 }
                 char == '%' -> {
                     if (currentNumber.isNotEmpty()) {
-                        val percentageValue = currentNumber.toString().toDoubleOrNull() ?: 0.0
+                        val percentageValue = try {
+                            BigDecimal(currentNumber.toString())
+                        } catch (e: NumberFormatException) {
+                            BigDecimal.ZERO
+                        }
                         currentNumber.clear()
-                        val previousNumber = numbers.lastOrNull() ?: 1.0
-                        numbers.add(previousNumber * (percentageValue / 100.0))
+                        val previousNumber = numbers.lastOrNull() ?: BigDecimal.ONE
+                        numbers.add(previousNumber.multiply(percentageValue).divide(BigDecimal("100"), 10, RoundingMode.HALF_UP))
                     }
                 }
                 char in "+-*/".toCharArray() -> {
@@ -171,12 +183,12 @@ object ExpressionCalculator {
             processCurrentNumber()
         }
 
-        // If no numbers were processed, return 0.0
-        if (numbers.isEmpty()) return 0.0
+        // If no numbers were processed, return 0
+        if (numbers.isEmpty()) return BigDecimal.ZERO
 
-        // If the expression ends with an operator, return the result up to the last number
+        // If the expression ends with an operator, evaluate up to the last number
         if (endsWithOperator) {
-            // Evaluate all complete operations
+            // Evaluate multiplication and division first
             var j = 0
             while (j < operators.size && j < numbers.size - 1) {
                 if (operators[j] in "*/") {
@@ -184,9 +196,9 @@ object ExpressionCalculator {
                     val b = numbers[j + 1]
                     val op = operators[j]
                     val result = when (op) {
-                        '*' -> a * b
-                        '/' -> if (b != 0.0) a / b else Double.POSITIVE_INFINITY
-                        else -> 0.0
+                        '*' -> a.multiply(b)
+                        '/' -> if (b != BigDecimal.ZERO) a.divide(b, 10, RoundingMode.HALF_UP) else BigDecimal.ZERO
+                        else -> BigDecimal.ZERO
                     }
                     numbers[j] = result
                     numbers.removeAt(j + 1)
@@ -197,13 +209,13 @@ object ExpressionCalculator {
             }
 
             // Evaluate addition and subtraction
-            var result = numbers.firstOrNull() ?: 0.0
+            var result = numbers.firstOrNull() ?: BigDecimal.ZERO
             for (k in 0 until minOf(operators.size, numbers.size - 1)) {
                 val op = operators[k]
                 val num = numbers[k + 1]
                 result = when (op) {
-                    '+' -> result + num
-                    '-' -> result - num
+                    '+' -> result.add(num)
+                    '-' -> result.subtract(num)
                     else -> result
                 }
             }
@@ -219,9 +231,9 @@ object ExpressionCalculator {
                 val b = numbers[j + 1]
                 val op = operators[j]
                 val result = when (op) {
-                    '*' -> a * b
-                    '/' -> if (b != 0.0) a / b else Double.POSITIVE_INFINITY
-                    else -> 0.0
+                    '*' -> a.multiply(b)
+                    '/' -> if (b != BigDecimal.ZERO) a.divide(b, 10, RoundingMode.HALF_UP) else BigDecimal.ZERO
+                    else -> BigDecimal.ZERO
                 }
                 numbers[j] = result
                 numbers.removeAt(j + 1)
@@ -232,13 +244,13 @@ object ExpressionCalculator {
         }
 
         // Evaluate addition and subtraction
-        var result = numbers.firstOrNull() ?: 0.0
+        var result = numbers.firstOrNull() ?: BigDecimal.ZERO
         for (k in 0 until operators.size) {
             val op = operators[k]
             val num = numbers[k + 1]
             result = when (op) {
-                '+' -> result + num
-                '-' -> result - num
+                '+' -> result.add(num)
+                '-' -> result.subtract(num)
                 else -> result
             }
         }
@@ -249,6 +261,19 @@ object ExpressionCalculator {
     /**
      * Formats the result, removing unnecessary decimal places for whole numbers.
      */
+    fun formatResult(result: BigDecimal): String {
+        // Strip trailing zeros and decimal point if the number is a whole number
+        val stripped = result.stripTrailingZeros()
+        return if (stripped.scale() <= 0) {
+            stripped.toPlainString()
+        } else {
+            stripped.setScale(minOf(6, stripped.scale()), RoundingMode.HALF_UP).toPlainString()
+        }
+    }
+
+    /**
+     * Legacy formatResult for Double, maintained for compatibility.
+     */
     fun formatResult(result: Double): String {
         return if (result == result.toLong().toDouble()) {
             result.toLong().toString()
@@ -258,7 +283,7 @@ object ExpressionCalculator {
     }
 
     /**
-     * Determines the number of decimal places for formatting.
+     * Determines the number of decimal places for formatting (for Double compatibility).
      */
     private fun getDecimalPlaces(value: Double): Int {
         val str = value.toString()

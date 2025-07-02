@@ -1,27 +1,41 @@
 package com.arjun.len_denkhata.monthbook.ui.viewmodel
 
-import androidx.lifecycle.*
+import android.content.Context
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
 import com.arjun.len_denkhata.data.repository.MonthBookRepository
+import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.time.LocalDate
+import kotlinx.coroutines.withContext
+import java.math.BigDecimal
 import java.time.YearMonth
-import java.time.ZoneId
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 @HiltViewModel
-class MonthBookViewModel @Inject constructor(private val repository: MonthBookRepository) : ViewModel() {
+class MonthBookViewModel @Inject constructor(
+    private val repository: MonthBookRepository,
+    private val context: Context
+) : ViewModel() {
+
+    private val keyboardHandler = KeyboardEventHandler()
+
     private val _transactions = MutableStateFlow<List<MonthBookTransactionEntity>>(emptyList())
-    val transactions: StateFlow<List<MonthBookTransactionEntity>> = _transactions
+    val transactions: StateFlow<List<MonthBookTransactionEntity>> = _transactions.asStateFlow()
 
     private val _loadingCalculations = MutableStateFlow(false)
     val loadingCalculations: StateFlow<Boolean> = _loadingCalculations.asStateFlow()
@@ -38,9 +52,8 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
     private val _calculatedAvgIncome = MutableStateFlow(0.0)
     val calculatedAvgIncome: StateFlow<Double> = _calculatedAvgIncome.asStateFlow()
 
-    private val _calculatedAvgIncomeOnIncomeDays = MutableStateFlow(0.0) // New StateFlow with a more relevant name
+    private val _calculatedAvgIncomeOnIncomeDays = MutableStateFlow(0.0)
     val calculatedAvgIncomeOnIncomeDays: StateFlow<Double> = _calculatedAvgIncomeOnIncomeDays.asStateFlow()
-
 
     private val _calculatedExpenseByCategory = MutableStateFlow(emptyMap<MonthBookExpenseCategory, Double>())
     val calculatedExpenseByCategory: StateFlow<Map<MonthBookExpenseCategory, Double>> = _calculatedExpenseByCategory.asStateFlow()
@@ -51,6 +64,30 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
     private val _monthlyTotals = MutableStateFlow<List<Pair<YearMonth, Pair<Double, Double>>>>(emptyList())
     val monthlyTotals: StateFlow<List<Pair<YearMonth, Pair<Double, Double>>>> = _monthlyTotals.asStateFlow()
 
+    // State for transaction entry
+    private val _amountTextFieldValue = MutableStateFlow("")
+    val amountTextFieldValue: StateFlow<String> = _amountTextFieldValue.asStateFlow()
+
+    private val _calculatedResult = MutableStateFlow("")
+    val calculatedResult: StateFlow<String> = _calculatedResult.asStateFlow()
+
+    private val _description = MutableStateFlow("")
+    val description: StateFlow<String> = _description.asStateFlow()
+
+    private val _selectedExpenseCategory = MutableStateFlow(MonthBookExpenseCategory.GENERAL)
+    val selectedExpenseCategory: StateFlow<MonthBookExpenseCategory> = _selectedExpenseCategory.asStateFlow()
+
+    private val _transactionForEdit = MutableStateFlow<MonthBookTransactionEntity?>(null)
+    val transactionForEdit: StateFlow<MonthBookTransactionEntity?> = _transactionForEdit.asStateFlow()
+
+    private val _selectedDate = MutableStateFlow(Date())
+    val selectedDate: StateFlow<Date> = _selectedDate.asStateFlow()
+
+    private val _dateError = MutableStateFlow<String?>(null)
+    val dateError: StateFlow<String?> = _dateError.asStateFlow()
+
+    private val calculationPrefix = context.getString(com.arjun.len_denkhata.R.string.calculated_amount)
+
     init {
         viewModelScope.launch {
             repository.allTransactions.collectLatest {
@@ -59,14 +96,101 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
         }
     }
 
+    // Handle input events
+    fun handleDigitInput(digit: String) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentValue = _amountTextFieldValue.value
+            val newValue = keyboardHandler.handleDigitInput(currentValue, digit)
+            _amountTextFieldValue.value = newValue
+            updateCalculation(newValue)
+        }
+    }
+
+    fun handleOperatorInput(operator: String) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentValue = _amountTextFieldValue.value
+            val newValue = keyboardHandler.handleOperatorInput(currentValue, operator)
+            _amountTextFieldValue.value = newValue
+            updateCalculation(newValue)
+        }
+    }
+
+    fun handleDecimalInput() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentValue = _amountTextFieldValue.value
+            val newValue = keyboardHandler.handleDecimalInput(currentValue)
+            _amountTextFieldValue.value = newValue
+            updateCalculation(newValue)
+        }
+    }
+
+    fun handlePercentageInput() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentValue = _amountTextFieldValue.value
+            val newValue = keyboardHandler.handlePercentageInput(currentValue)
+            _amountTextFieldValue.value = newValue
+            updateCalculation(newValue)
+        }
+    }
+
+    fun handleBackspace() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val currentValue = _amountTextFieldValue.value
+            val newValue = keyboardHandler.handleBackspace(currentValue)
+            _amountTextFieldValue.value = newValue
+            updateCalculation(newValue)
+        }
+    }
+
+    fun clearInput() {
+        viewModelScope.launch(Dispatchers.Default) {
+            keyboardHandler.clearCache()
+            _amountTextFieldValue.value = ""
+            _calculatedResult.value = ""
+        }
+    }
+
+    fun updateDescription(newDescription: String) {
+        _description.value = newDescription
+    }
+
+    fun updateExpenseCategory(category: MonthBookExpenseCategory) {
+        _selectedExpenseCategory.value = category
+    }
+
+    fun updateDate(newDate: Date) {
+        viewModelScope.launch(Dispatchers.Main) {
+            if (newDate.after(Date())) {
+                _dateError.value = context.getString(com.arjun.len_denkhata.R.string.date_error_while_choosing)
+            } else {
+                _dateError.value = null
+                _selectedDate.value = newDate
+            }
+        }
+    }
+
+    private suspend fun updateCalculation(newValue: String) {
+        val result = keyboardHandler.calculateWithCaching(newValue, calculationPrefix)
+        withContext(Dispatchers.Main) {
+            _calculatedResult.value = result
+        }
+    }
+
     fun addTransaction(
         amount: Double,
         description: String,
         date: Date,
-        type: MonthBookTransactionType, // Using MonthBookTransactionType
-        monthBookExpenseCategory: MonthBookExpenseCategory? = null // Using MonthBookExpenseCategory
+        type: MonthBookTransactionType,
+        monthBookExpenseCategory: MonthBookExpenseCategory? = null
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            val finalAmount = keyboardHandler.getFinalAmount(_amountTextFieldValue.value, _calculatedResult.value)
+            // Warn about potential precision loss
+            val bigDecimalAmount = BigDecimal(finalAmount.toString())
+            if (bigDecimalAmount.toDouble() != finalAmount) {
+                Log.w("MonthBookViewModel", "Precision loss detected when converting $finalAmount to Double")
+            }
+
             val calendar = Calendar.getInstance()
             calendar.timeInMillis = System.currentTimeMillis()
 
@@ -86,7 +210,7 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             val mergedTimestamp = dateCalendar.timeInMillis
 
             val newTransaction = MonthBookTransactionEntity(
-                amount = amount,
+                amount = finalAmount,
                 description = description,
                 type = type,
                 timestamp = mergedTimestamp,
@@ -94,6 +218,14 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             )
 
             repository.insertTransaction(newTransaction)
+            withContext(Dispatchers.Main) {
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
+                _selectedDate.value = Date()
+                _dateError.value = null
+            }
         }
     }
 
@@ -102,10 +234,17 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
         amount: Double,
         description: String,
         date: Date,
-        type: MonthBookTransactionType, // Using MonthBookTransactionType
-        monthBookExpenseCategory: MonthBookExpenseCategory? = null // Using MonthBookExpenseCategory
+        type: MonthBookTransactionType,
+        monthBookExpenseCategory: MonthBookExpenseCategory? = null
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            val finalAmount = keyboardHandler.getFinalAmount(_amountTextFieldValue.value, _calculatedResult.value)
+            // Warn about potential precision loss
+            val bigDecimalAmount = BigDecimal(finalAmount.toString())
+            if (bigDecimalAmount.toDouble() != finalAmount) {
+                Log.w("MonthBookViewModel", "Precision loss detected when converting $finalAmount to Double")
+            }
+
             val originalTimestampCalendar = Calendar.getInstance()
             originalTimestampCalendar.timeInMillis = existingTransaction.timestamp
 
@@ -125,26 +264,62 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             val mergedTimestamp = newDateCalendar.timeInMillis
 
             val updatedTransaction = existingTransaction.copy(
-                amount = amount,
+                amount = finalAmount,
                 description = description,
                 type = type,
                 expenseCategory = monthBookExpenseCategory,
                 edited = true,
                 editedOn = System.currentTimeMillis(),
-                timestamp = mergedTimestamp // Using the merged timestamp
+                timestamp = mergedTimestamp
             )
-            repository.updateTransaction(updatedTransaction) // Assuming OnConflictStrategy.REPLACE in DAO
+            repository.updateTransaction(updatedTransaction)
+            withContext(Dispatchers.Main) {
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
+                _selectedDate.value = Date()
+                _dateError.value = null
+            }
         }
     }
 
     fun deleteTransaction(transaction: MonthBookTransactionEntity) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTransaction(transaction)
         }
     }
 
+    fun loadTransactionById(transactionId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val transaction = repository.getTransactionById(transactionId).firstOrNull()
+            withContext(Dispatchers.Main) {
+                _transactionForEdit.value = transaction
+                transaction?.let {
+                    _amountTextFieldValue.value = it.amount.toString()
+                    _description.value = it.description
+                    _selectedExpenseCategory.value = it.expenseCategory ?: MonthBookExpenseCategory.GENERAL
+                    // Extract the Date part from the transaction's timestamp
+                    val calendar = Calendar.getInstance().apply {
+                        timeInMillis = it.timestamp
+                    }
+                    val year = calendar.get(Calendar.YEAR)
+                    val month = calendar.get(Calendar.MONTH)
+                    val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
+                    // Create a new Date object with only the date components
+                    val extractedDate = Calendar.getInstance().apply {
+                        set(year, month, dayOfMonth, 0, 0, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }.time
+                    _selectedDate.value = extractedDate
+                    keyboardHandler.clearCache()
+                }
+            }
+        }
+    }
+
     suspend fun getTransactionByIdOnce(transactionId: Long): MonthBookTransactionEntity? {
-        return repository.getTransactionById(transactionId).firstOrNull() // Collects the first value and then cancels
+        return repository.getTransactionById(transactionId).firstOrNull()
     }
 
     suspend fun calculateTotalIncome(): Double {
@@ -155,7 +330,7 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
         return _transactions.value.filter { it.type == MonthBookTransactionType.EXPENSE }.sumOf { it.amount }
     }
 
-    suspend fun getExpensesByCategory(): Map<MonthBookExpenseCategory, Double> { // Using MonthBookExpenseCategory
+    suspend fun getExpensesByCategory(): Map<MonthBookExpenseCategory, Double> {
         return _transactions.value
             .filter { it.type == MonthBookTransactionType.EXPENSE && it.expenseCategory != null }
             .groupBy { it.expenseCategory!! }
@@ -165,15 +340,15 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
     suspend fun calculateMonthData() {
         _loadingCalculations.value = true
         delay(1000)
-        val currentMonth = java.time.YearMonth.now()
+        val currentMonth = YearMonth.now()
         val calendar = Calendar.getInstance()
-        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
         val currentMonthTransactions = _transactions.value.filter { transaction ->
             calendar.timeInMillis = transaction.timestamp
-            val transactionYearMonth = java.time.YearMonth.of(
+            val transactionYearMonth = YearMonth.of(
                 calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH) + 1 // Calendar's month is 0-based
+                calendar.get(Calendar.MONTH) + 1
             )
             transactionYearMonth == currentMonth
         }
@@ -197,12 +372,9 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
             0.0
         }
 
-        // Calculate number of days from month start to current date
         val daysInMonthUpToNow = if (YearMonth.now() == currentMonth) {
-            // If current month, use today's date
-            LocalDate.now().dayOfMonth
+            java.time.LocalDate.now().dayOfMonth
         } else {
-            // If past month, use total days in that month
             currentMonth.lengthOfMonth()
         }
 
@@ -230,7 +402,7 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
 
         _monthlyTotals.value = _transactions.value.groupBy { transaction ->
             calendar.timeInMillis = transaction.timestamp
-            java.time.YearMonth.of(
+            YearMonth.of(
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH) + 1
             )
@@ -245,5 +417,4 @@ class MonthBookViewModel @Inject constructor(private val repository: MonthBookRe
 
         _loadingCalculations.value = false
     }
-
 }

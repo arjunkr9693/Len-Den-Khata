@@ -6,7 +6,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionEntity
 import com.arjun.len_denkhata.ui.screens.customer.CustomerDetailScreen
 import com.arjun.len_denkhata.ui.screens.customer.CustomerScreen
 import com.arjun.len_denkhata.ui.screens.customer.CustomerTransactionEntryScreen
@@ -18,11 +17,9 @@ import com.arjun.len_denkhata.ui.screens.SupplierTransactionScreen
 import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
-import com.arjun.len_denkhata.data.utils.toCustomerTransactionEntity
-import com.arjun.len_denkhata.data.utils.toJson
+import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.screens.monthbook.AddMonthBookTransactionScreen
 import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookScreen
-import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.screens.InitialDataLoaderScreen
 import com.arjun.len_denkhata.ui.screens.LanguageSelectionScreen
 import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookCalculatedDataScreen
