@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.ui.screens.customer
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +40,7 @@ fun CustomerDetailScreen(
     navController: NavHostController
 ) {
     val customer by viewModel.selectedCustomer.collectAsState()
+    val context = LocalContext.current
 
     var name by remember { mutableStateOf(customer?.name) }
     var phone by remember { mutableStateOf(customer?.phone) }
@@ -66,7 +70,7 @@ fun CustomerDetailScreen(
                             val updatedCustomer = name?.let { customer?.copy(name = it) }
                             if (updatedCustomer != null) {
                                 viewModel.updateCustomer(updatedCustomer)
-                            }
+                                Toast.makeText(context, "Customer updated successfully", Toast.LENGTH_SHORT).show()                            }
                         }
                     ) {
                         Icon(Icons.Default.Check, contentDescription = stringResource(R.string.save))

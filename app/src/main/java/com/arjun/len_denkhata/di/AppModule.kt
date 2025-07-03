@@ -31,6 +31,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -38,8 +39,10 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "khatabook_db"
-        ).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2) // Add the migration
+            .build()
     }
+
     @Provides
     fun provideCustomerDao(appDatabase: AppDatabase): CustomerDao {
         return appDatabase.customerDao()
@@ -74,6 +77,7 @@ object AppModule {
     fun provideMonthBookSyncStatusDao(database: AppDatabase): MonthBookSyncStatusDao {
         return database.monthBookSyncStatusDao()
     }
+
     @Provides
     @Singleton
     fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -83,7 +87,6 @@ object AppModule {
     fun provideFirebaseAuth(): FirebaseAuth {
         return Firebase.auth
     }
-
 
     @Provides
     @Singleton
@@ -105,12 +108,11 @@ object AppModule {
     @Provides
     fun provideTransactionMapper(): TransactionMapper = TransactionMapper()
 
-    @Provides fun provideTransactionProcessor(customerTransactionRepository: CustomerTransactionRepository, customerRepository: CustomerRepository): TransactionProcessor {
+    @Provides
+    fun provideTransactionProcessor(
+        customerTransactionRepository: CustomerTransactionRepository,
+        customerRepository: CustomerRepository
+    ): TransactionProcessor {
         return TransactionProcessor(customerTransactionRepository, customerRepository)
     }
-
-//    @Singleton
-//    @ApplicationScope
-//    @Provides
-//    fun provideApplicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }

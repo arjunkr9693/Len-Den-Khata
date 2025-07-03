@@ -77,7 +77,7 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
 
     LaunchedEffect(filteredCustomers.size){
         if(filteredCustomers.isNotEmpty() && !checkedContactName) {
-            viewModel.updateContactNamesFromPhonebook()
+            viewModel.updateContactDetailFromPhonebook()
             checkedContactName = true
         }
     }
@@ -146,12 +146,22 @@ fun CustomerScreen(navController: NavHostController, viewModel: CustomerViewMode
             Spacer(Modifier.height(8.dp))
             LazyColumn{
                 items(filteredCustomers) {customer ->
-                    CustomerListItem(customer = customer) { selectedCustomer ->
-                        coroutineScope.launch {
-                            viewModel.setSelectedCustomerById(selectedCustomer.id)
+                    CustomerListItem(
+                        customer = customer,
+                        onClick = { selectedCustomer ->
+                            coroutineScope.launch {
+                                viewModel.setSelectedCustomerById(selectedCustomer.id)
+                            }
+                            navController.navigate(
+                                Screen.CustomerTransaction.createRoute(
+                                    selectedCustomer.id
+                                )
+                            )
+                        },
+                        getLastUpdatedMessage = { lastUpdated ->
+                            viewModel.getLastUpdatedMessage(lastUpdated)
                         }
-                        navController.navigate(Screen.CustomerTransaction.createRoute(selectedCustomer.id))
-                    }
+                    )
                 }
             }
         }

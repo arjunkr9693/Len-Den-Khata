@@ -28,9 +28,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -56,7 +59,6 @@ class CustomerViewModel @Inject constructor(
     val totalWillGet: StateFlow<Double> = _totalWillGet
 
     val todayDue: StateFlow<Double> = customerTransactionRepository.todayDue
-
 
     private val _phoneNumberToMerge = MutableStateFlow("")
     val phoneNumberToMerge: StateFlow<String> = _phoneNumberToMerge
@@ -91,13 +93,12 @@ class CustomerViewModel @Inject constructor(
     private fun loadCustomers() {
         viewModelScope.launch {
             customerRepository.getAllCustomers().collectLatest { customers ->
-                _customers.value = customers
+                _customers.value = customers.sortedByDescending { it.lastUpdated }
                 _totalWillGet.value = customerRepository.calculateWillGet(_customers.value)
                 _totalHaveToGive.value = customerRepository.calculateHaveToGive(_customers.value)
             }
         }
     }
-
 
     fun mergeCountryCodeAndAddCustomer(countryCode: String, contentResolver: ContentResolver, navController: NavHostController) {
         viewModelScope.launch {
@@ -143,10 +144,22 @@ class CustomerViewModel @Inject constructor(
 
     private fun addCustomer(name: String, number: String, navController: NavHostController) {
         viewModelScope.launch {
-            // Insert the customer and get the generated ID.
+            // Get contact info including profile picture
+            val contactInfo = withContext(Dispatchers.IO) {
+                getContactInfoFromPhonebook(number.takeLast(10))
+            }
+
             val customerId = number
+            val customerEntity = CustomerEntity(
+                id = number,
+                name = name,
+                phone = number,
+                isNameModifiedByUser = true, // Since user is manually adding
+                profilePictureUri = contactInfo?.profilePictureUri
+            )
+
             viewModelScope.launch {
-                customerRepository.insertCustomer(CustomerEntity(id = number, name = name, phone = number))
+                customerRepository.insertCustomer(customerEntity)
             }
             viewModelScope.launch {
                 setSelectedCustomerById(customerId)
@@ -208,21 +221,11 @@ class CustomerViewModel @Inject constructor(
         }
     }
 
-
     fun deleteTransaction(transactionId: Long) {
         viewModelScope.launch {
             customerTransactionRepository.deleteTransaction(transactionId)
         }
     }
-
-//    private fun loadCustomerBalance(customerId: String) {
-//        viewModelScope.launch {
-//            customerRepository.getCustomerById(customerId).collectLatest { customer ->
-//                Log.d("testTag", customer.toString())
-//                _customerOverallBalance.value = customer?.overallBalance ?: 0.0
-//            }
-//        }
-//    }
 
     fun deleteCustomer(customerEntity: CustomerEntity) {
         viewModelScope.launch {
@@ -232,50 +235,86 @@ class CustomerViewModel @Inject constructor(
 
     fun updateCustomer(updatedCustomer: CustomerEntity) {
         viewModelScope.launch {
-            customerRepository.updateCustomer(updatedCustomer)
+            customerRepository.updateCustomer(updatedCustomer.copy(isNameModifiedByUser = true))
         }
     }
-    suspend fun updateContactNamesFromPhonebook() {
+
+    // Update customer name manually (sets isNameModifiedByUser to true)
+    fun updateCustomerName(customerId: String, newName: String) {
+        viewModelScope.launch {
+            val customer = customerRepository.getCustomerById(customerId).first()
+            customer?.let {
+                val updatedCustomer = it.copy(
+                    name = newName,
+                    isNameModifiedByUser = true,
+                    lastUpdated = System.currentTimeMillis()
+                )
+                customerRepository.updateCustomer(updatedCustomer)
+            }
+        }
+    }
+
+    suspend fun updateContactDetailFromPhonebook() {
         uiScope.launch {
             val updatedCustomers = _customers.value.map { customer ->
-                val contactName = withContext(Dispatchers.IO) {
-                    getContactNameFromPhonebook(customer.phone.takeLast(10))
-                }
-                if (contactName != null && customer.name != contactName) {
-                    customer.copy(name = contactName)
+                // Only update if name was not manually modified by user
+                if (!customer.isNameModifiedByUser) {
+                    val contactInfo = withContext(Dispatchers.IO) {
+                        getContactInfoFromPhonebook(customer.phone.takeLast(10))
+                    }
+                    if (contactInfo?.name != null && customer.name != contactInfo.name) {
+                        customer.copy(
+                            name = contactInfo.name,
+                            profilePictureUri = contactInfo.profilePictureUri,
+                            lastUpdated = System.currentTimeMillis()
+                        )
+                    } else {
+                        customer
+                    }
                 } else {
                     customer
                 }
             }
             _customers.value = updatedCustomers
-            // Optionally, persist the updated contact names if needed
+            // Persist the updated contact names
             updatedCustomers.forEach { customer ->
                 customerRepository.updateCustomer(customer)
             }
         }
     }
 
-    private suspend fun getContactNameFromPhonebook(phoneNumberLast10Digits: String): String? = withContext(Dispatchers.IO) {
+    private data class ContactInfo(
+        val name: String?,
+        val profilePictureUri: String?
+    )
+
+    private suspend fun getContactInfoFromPhonebook(phoneNumberLast10Digits: String): ContactInfo? = withContext(Dispatchers.IO) {
         val contentResolver: ContentResolver = applicationContext.contentResolver
         val uri: Uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumberLast10Digits))
-        var contactName: String? = null
+        var contactInfo: ContactInfo? = null
 
-        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+        val projection = arrayOf(
+            ContactsContract.PhoneLookup.DISPLAY_NAME,
+            ContactsContract.PhoneLookup.PHOTO_URI
+        )
 
         try {
             val cursor: Cursor? = contentResolver.query(uri, projection, null, null, null)
             cursor?.use {
                 if (it.moveToFirst()) {
                     val nameIndex = it.getColumnIndexOrThrow(ContactsContract.PhoneLookup.DISPLAY_NAME)
-                    contactName = it.getString(nameIndex)
+                    val photoIndex = it.getColumnIndexOrThrow(ContactsContract.PhoneLookup.PHOTO_URI)
+
+                    val contactName = it.getString(nameIndex)
+                    val photoUri = it.getString(photoIndex)
+
+                    contactInfo = ContactInfo(contactName, photoUri)
                 }
             }
         } catch (e: SecurityException) {
-            // Handle the case where READ_CONTACTS permission is not granted
             android.util.Log.e("ContactLookup", "Permission to read contacts not granted: ${e.message}")
-            // You might want to inform the user about the missing permission
         }
-        return@withContext contactName
+        return@withContext contactInfo
     }
 
     private fun calculateTodayDue() {
@@ -287,11 +326,49 @@ class CustomerViewModel @Inject constructor(
     private var selectedCustomerJob: Job? = null
 
     fun setSelectedCustomerById(customerId: String) {
-        selectedCustomerJob?.cancel() // Cancel previous collection if running
+        selectedCustomerJob?.cancel()
 
         selectedCustomerJob = viewModelScope.launch {
             customerRepository.getCustomerById(customerId).collectLatest {
                 _selectedCustomer.value = it
+            }
+        }
+    }
+
+    fun getLastUpdatedMessage(timestamp: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - timestamp
+
+        return when {
+            diff < 0 -> "Updated in the future"
+            diff < 60000 -> {
+                val seconds = (diff / 1000).toInt()
+                "Updated $seconds ${if (seconds == 1) "second" else "seconds"} ago"
+            }
+            diff < 3600000 -> {
+                val minutes = (diff / 60000).toInt()
+                "Updated $minutes ${if (minutes == 1) "minute" else "minutes"} ago"
+            }
+            diff < 86400000 -> {
+                val hours = (diff / 3600000).toInt()
+                "Updated $hours ${if (hours == 1) "hour" else "hours"} ago"
+            }
+            diff < 604800000 -> {
+                val days = (diff / 86400000).toInt()
+                "Updated $days ${if (days == 1) "day" else "days"} ago"
+            }
+            diff < 2592000000 -> {
+                val weeks = (diff / 604800000).toInt()
+                "Updated $weeks ${if (weeks == 1) "week" else "weeks"} ago"
+            }
+            diff < 31536000000 -> {
+                val months = (diff / 2592000000).toInt()
+                "Updated $months ${if (months == 1) "month" else "months"} ago"
+            }
+            else -> {
+                val date = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                    .format(java.util.Date(timestamp))
+                "Updated on $date"
             }
         }
     }

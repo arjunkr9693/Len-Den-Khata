@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
@@ -134,7 +135,6 @@ class CustomerTransactionEntryViewModel @Inject constructor(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val finalAmount = keyboardHandler.getFinalAmount(_amountTextFieldValue.value, _calculatedResult.value)
-            // Warn about potential precision loss
             val bigDecimalAmount = BigDecimal(finalAmount.toString())
             if (bigDecimalAmount.toDouble() != finalAmount) {
                 Log.w("CustomerTransactionEntryViewModel", "Precision loss detected when converting $finalAmount to Double")
@@ -169,6 +169,10 @@ class CustomerTransactionEntryViewModel @Inject constructor(
 
             Log.d("DateCheck", "Date: ${_selectedDate.value}")
             transactionRepository.insertCustomerTransaction(transaction)
+
+            // Update customer's last updated timestamp
+            updateCustomerLastUpdated(customerId)
+
             withContext(Dispatchers.Main) {
                 navController.popBackStack()
             }
@@ -182,7 +186,6 @@ class CustomerTransactionEntryViewModel @Inject constructor(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val finalAmount = keyboardHandler.getFinalAmount(_amountTextFieldValue.value, _calculatedResult.value)
-            // Warn about potential precision loss
             val bigDecimalAmount = BigDecimal(finalAmount.toString())
             if (bigDecimalAmount.toDouble() != finalAmount) {
                 Log.w("CustomerTransactionEntryViewModel", "Precision loss detected when converting $finalAmount to Double")
@@ -214,9 +217,21 @@ class CustomerTransactionEntryViewModel @Inject constructor(
                 editedOn = System.currentTimeMillis()
             )
             transactionRepository.updateTransaction(updatedTransaction, originalAmount)
+
+            // Update customer's last updated timestamp
+            updateCustomerLastUpdated(customerTransaction.customerId)
+
             withContext(Dispatchers.Main) {
                 navController.popBackStack()
             }
+        }
+    }
+
+    private suspend fun updateCustomerLastUpdated(customerId: String) {
+        val customer = customerRepository.getCustomerById(customerId).first()
+        customer?.let {
+            val updatedCustomer = it.copy(lastUpdated = System.currentTimeMillis())
+            customerRepository.updateCustomer(updatedCustomer)
         }
     }
 

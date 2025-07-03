@@ -14,6 +14,8 @@ import com.arjun.len_denkhata.data.database.CustomerSyncStatusDao
 import com.arjun.len_denkhata.data.database.MonthBookSyncStatusDao
 import com.arjun.len_denkhata.data.database.transactions.customer.CustomerTransactionDao
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionDao
+import com.arjun.len_denkhata.data.utils.worker.CustomerSyncWorker
+import com.arjun.len_denkhata.data.utils.worker.MonthBookSyncWorker
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -76,9 +78,21 @@ class CustomWorkerFactory @Inject constructor(
     ): ListenableWorker? {
         return when (workerClassName) {
             CustomerSyncWorker::class.java.name ->
-                CustomerSyncWorker(appContext, workerParameters, firestore, customerTransactionDao, customerSyncStatusDao)
+                CustomerSyncWorker(
+                    appContext,
+                    workerParameters,
+                    firestore,
+                    customerTransactionDao,
+                    customerSyncStatusDao
+                )
             MonthBookSyncWorker::class.java.name ->
-                MonthBookSyncWorker(appContext, workerParameters, firestore, monthBookTransactionDao, monthBookSyncStatusDao)
+                MonthBookSyncWorker(
+                    appContext,
+                    workerParameters,
+                    firestore,
+                    monthBookTransactionDao,
+                    monthBookSyncStatusDao
+                )
             else ->
                 null // Return null if the worker class is unknown
         }

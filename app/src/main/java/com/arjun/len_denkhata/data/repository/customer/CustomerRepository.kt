@@ -17,71 +17,13 @@ class CustomerRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val loginRepository: LoginRepository
 ) {
-    suspend fun addCustomer(customer: CustomerEntity) {
-        val firebaseDocumentId = UUID.randomUUID().toString()
-        val firebaseCustomer = customer.copy()
-
-        try {
-            firestore.collection("customers").document(firebaseDocumentId).set(firebaseCustomer).await()
-            val roomCustomer = CustomerEntity(
-                id = customer.id.toString(),
-                name = customer.name,
-                phone = customer.phone,
-                overallBalance = customer.overallBalance,
-            )
-            customerDao.insert(roomCustomer)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Handle error
-        }
-    }
-
-//    suspend fun syncCustomersWithFirebase() {
-//        try {
-//            val snapshot = firestore.collection("customers").get().await()
-//            snapshot.documents.forEach { document ->
-//                val firebaseCustomer = document.toObject<Customer>()
-//                firebaseCustomer?.let {
-//                    val localCustomer = customerDao.getCustomerByFirebaseId(it.firebaseDocumentId ?: "").firstOrNull()
-//
-//                    if (localCustomer == null) {
-//                        val roomCustomer = CustomerEntity(
-//                            id = it.id,
-//                            name = it.name,
-//                            phone = it.phone,
-//                            address = it.address,
-//                            balance = it.balance,
-//                            firebaseDocumentId = it.firebaseDocumentId
-//                        )
-//                        customerDao.insert(roomCustomer)
-//                    } else {
-////                        // Update local customer if needed
-////                        val updatedRoomCustomer = localCustomer.firstOrNull()?.copy(
-////                            name = it.name,
-////                            phone = it.phone,
-////                            address = it.address,
-////                            balance = it.balance
-////                        )
-////                        if (updatedRoomCustomer != null){
-////                            customerDao.update(updatedRoomCustomer)
-////                        }
-//                    }
-//                }
-//            }
-//            // Add code to upload local changes to firebase.
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//        }
-//    }
 
     fun getAllCustomers(): Flow<List<CustomerEntity>> {
         return customerDao.getAllCustomers()
     }
 
-
     @Transaction
     suspend fun insertCustomer(customer: CustomerEntity): Long {
-
         return try {
             customerDao.insert(customer)
         } catch (e: Exception) {
@@ -106,6 +48,7 @@ class CustomerRepository @Inject constructor(
         }
         return@withContext haveToGive
     }
+
     suspend fun calculateWillGet(customers: List<CustomerEntity>): Double = withContext(Dispatchers.IO) {
         var haveToGive = 0.0
         for (customer in customers) {
@@ -130,4 +73,10 @@ class CustomerRepository @Inject constructor(
     suspend fun customerExists(ownerId: String): Boolean {
         return customerDao.customerExists(ownerId)
     }
+
+    // New method to update customer with last updated timestamp
+//    suspend fun updateCustomerWithTimestamp(updatedCustomer: CustomerEntity) {
+////        val customerWithTimestamp = updatedCustomer.copy(lastUpdated = System.currentTimeMillis())
+//        customerDao.update()
+//    }
 }
