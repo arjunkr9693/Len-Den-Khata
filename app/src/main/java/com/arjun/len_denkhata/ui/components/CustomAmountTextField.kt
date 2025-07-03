@@ -16,6 +16,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.appcompat.widget.AppCompatEditText
 import android.view.Gravity
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color // Import Color
 
 @Composable
 fun CustomAmountTextField(
@@ -26,6 +27,10 @@ fun CustomAmountTextField(
     onFocusCleared: () -> Unit = {} // Add this callback
 ) {
     val editTextRef = remember { mutableStateOf<EditText?>(null) }
+
+    // Get current colors from MaterialTheme
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant // A common choice for hints
 
     // Clear focus when requested
     LaunchedEffect(shouldClearFocus) {
@@ -50,10 +55,17 @@ fun CustomAmountTextField(
                 isFocusableInTouchMode = true
                 showSoftInputOnFocus = false
                 background = null
-                hint = "Amount" // Hint added
-                gravity = Gravity.CENTER_VERTICAL // Center text vertically
+                hint = "Amount"
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(32, 0, 32, 0)
                 textSize = 16f
+
+                // --- START OF CHANGES ---
+                // Set text color from MaterialTheme
+                setTextColor(textColor.toArgb())
+                // Set hint color from MaterialTheme
+                setHintTextColor(hintColor.toArgb())
+                // --- END OF CHANGES ---
 
                 setOnFocusChangeListener { _, hasFocus ->
                     onFocusChanged(hasFocus)
