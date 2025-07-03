@@ -18,13 +18,13 @@ fun CustomClickableRoundedBox(
     modifier: Modifier = Modifier,
     text: String
 ) {
-    val darkBlueWithOpacity = Color(0xFF00008B).copy(alpha = 0.6f)
+    val buttonColor = MaterialTheme.colorScheme.primary
 
     Box(
         modifier = modifier
             .clickable(onClick = onClick)
             .background(
-                color = darkBlueWithOpacity,
+                color = buttonColor,
                 shape = RoundedCornerShape(8.dp) // Adjust corner radius as needed
             )
             .padding(horizontal = 16.dp, vertical = 8.dp), // Add padding for better touch target
@@ -32,7 +32,7 @@ fun CustomClickableRoundedBox(
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onPrimary,
             style = MaterialTheme.typography.bodyMedium // Use appropriate text style
         )
     }

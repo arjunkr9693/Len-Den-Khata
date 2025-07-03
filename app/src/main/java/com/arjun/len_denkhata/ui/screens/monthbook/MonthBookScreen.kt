@@ -129,8 +129,7 @@ fun MonthBookTransactionItem(
     val transactionTypeText = if (transaction.type == MonthBookTransactionType.INCOME)
         stringResource(R.string.income) else stringResource(R.string.expense)
 
-    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault())
-        .format(Date(transaction.timestamp))
+    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
 
         Column(
             modifier = Modifier

@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,7 +54,7 @@ fun TransactionItem(
 
     // Background color based on debit/credit
     val backgroundColor =
-        if (isCredit) Color(0xFFE8F5E9) else Color(0xFFFFEBEE) // Light green for credit, light red for debit
+        if (isCredit) colorResource(R.color.creditContainerColor) else colorResource(R.color.debitContainerColor) // Light green for credit, light red for debit
 
     // Text for "You gave" or "You got"
     val transactionTypeText =

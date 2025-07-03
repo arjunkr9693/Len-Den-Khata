@@ -34,5 +34,4 @@ interface CustomerTransactionDao {
 
     @Query("SELECT * FROM customerTransactions WHERE timestamp >= :startTime AND timestamp <= :endTime AND isCredit = 0 AND isDeleted = 0")
     fun getTodayDebitTransactions(startTime: Long, endTime: Long): Flow<List<CustomerTransactionEntity>>
-
 }

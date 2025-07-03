@@ -85,6 +85,12 @@ fun CustomerTransactionEntryScreen(
         }
     }
 
+    LaunchedEffect(isEditing, transactionId) {
+        if (isEditing && transactionId != -1L) {
+            viewModel.loadTransactionByTransactionId(transactionId)
+        }
+    }
+
     // Add BackHandler to handle back button press when custom keyboard is visible
     BackHandler(enabled = showCustomKeyboard) {
         showCustomKeyboard = false

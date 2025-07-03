@@ -200,7 +200,7 @@ class CustomerViewModel @Inject constructor(
                     DateFormatters.dateGroupFormat.format(
                         DateFormatters.fullTimestampFormat.parse(it.formattedTimestamp) ?: Date()
                     )
-                }.toSortedMap(reverseOrder())
+                }.toSortedMap()
 
                 _groupedTransactions.value = groupedAndSorted
                 _filteredGroupedTransactions.value = groupedAndSorted // Initialize filtered with all transactions

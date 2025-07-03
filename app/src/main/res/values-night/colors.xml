@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="creditContainerColor">#054717</color>
+    <color name="debitContainerColor">#540909</color>
+</resources>
