@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -122,14 +123,15 @@ fun MonthBookTransactionItem(
     var expanded by remember { mutableStateOf(false) }
 
     val backgroundColor = when (transaction.type) {
-        MonthBookTransactionType.INCOME -> Color(0xFFE8F5E9) // Light green for income
-        MonthBookTransactionType.EXPENSE -> Color(0xFFFFEBEE) // Light red for expense
+        MonthBookTransactionType.INCOME -> colorResource(R.color.creditContainerColor) // Light green for income
+        MonthBookTransactionType.EXPENSE -> colorResource(R.color.debitContainerColor) // Light red for expense
     }
 
     val transactionTypeText = if (transaction.type == MonthBookTransactionType.INCOME)
         stringResource(R.string.income) else stringResource(R.string.expense)
 
-    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault()).format(Date(transaction.timestamp))
+    val formattedTimestamp = SimpleDateFormat("dd-MM-yyyy hh:mm:ss a", Locale.getDefault())
+        .format(Date(transaction.timestamp))
 
         Column(
             modifier = Modifier
