@@ -24,7 +24,7 @@ import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
-import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
+import com.arjun.len_denkhata.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.components.CustomAmountTextField
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import com.arjun.len_denkhata.ui.components.DatePickerModal
@@ -73,27 +73,49 @@ fun AddMonthBookTransactionScreen(
     LaunchedEffect(amountFieldFocused) {
         showCustomKeyboard = amountFieldFocused
     }
-
-    // Handle focus and keyboard visibility
-    LaunchedEffect(descriptionFieldFocused, amountFieldFocused) {
-        if (amountFieldFocused) {
-            if (descriptionFieldFocused) {
+    LaunchedEffect(amountFieldFocused, descriptionFieldFocused) {
+        when {
+            amountFieldFocused -> {
+                // Amount field is focused - show custom keyboard
                 keyboardController?.hide()
-                delay(200)
-                showCustomKeyboard = true
-            } else {
-                showCustomKeyboard = true
+                if (showCustomKeyboard) {
+                    // If custom keyboard is already showing, no need to delay
+                    // Just continue showing it
+                } else {
+                    delay(300)
+                    showCustomKeyboard = true
+                }
             }
-        } else if (descriptionFieldFocused) {
-            if (showCustomKeyboard) {
-                showCustomKeyboard = false
-                delay(200)
-            } else {
+            descriptionFieldFocused -> {
+                // Description field is focused - show system keyboard
+                if (showCustomKeyboard) {
+                    showCustomKeyboard = false
+                    delay(300)
+                }
                 keyboardController?.show()
+            }
+            else -> {
+                // No field is focused - hide all keyboards
+                showCustomKeyboard = false
+                keyboardController?.hide()
             }
         }
     }
 
+    LaunchedEffect(transactionType) {
+        if (!isEditing) {
+            viewModel.loadUnsavedTransaction(transactionType)
+        }
+    }
+
+// Save unsaved transaction when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!isEditing) {
+                viewModel.saveUnsavedTransaction(transactionType)
+            }
+        }
+    }
     // Add BackHandler to handle back button press when custom keyboard is visible
     BackHandler(enabled = showCustomKeyboard) {
         showCustomKeyboard = false
@@ -118,7 +140,12 @@ fun AddMonthBookTransactionScreen(
             CustomTopBarWithIcon(
                 title = if (transactionType == MonthBookTransactionType.INCOME)
                     stringResource(R.string.add_income) else stringResource(R.string.add_expense),
-                onBackClick = { navController.popBackStack() }
+                onBackClick = {
+                    if (!isEditing) {
+                        viewModel.saveUnsavedTransaction(transactionType)
+                    }
+                    navController.popBackStack()
+                }
             )
         }
     ) { paddingValues ->

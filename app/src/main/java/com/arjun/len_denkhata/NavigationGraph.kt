@@ -17,7 +17,7 @@ import com.arjun.len_denkhata.ui.screens.SupplierTransactionScreen
 import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
-import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
+import com.arjun.len_denkhata.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.screens.monthbook.AddMonthBookTransactionScreen
 import com.arjun.len_denkhata.ui.screens.monthbook.MonthBookScreen
 import com.arjun.len_denkhata.ui.screens.InitialDataLoaderScreen

@@ -60,6 +60,20 @@ fun CustomerTransactionEntryScreen(
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Load unsaved transaction when not editing
+    LaunchedEffect(transactionType) {
+        if (!isEditing) {
+            viewModel.loadUnsavedTransaction(transactionType)
+        }
+    }
+
+    // Load transaction for editing
+    LaunchedEffect(isEditing, transactionId) {
+        if (isEditing && transactionId != -1L) {
+            viewModel.loadTransactionByTransactionId(transactionId)
+        }
+    }
+
     // Handle keyboard visibility
     LaunchedEffect(amountFieldFocused) {
         showCustomKeyboard = amountFieldFocused
@@ -85,9 +99,12 @@ fun CustomerTransactionEntryScreen(
         }
     }
 
-    LaunchedEffect(isEditing, transactionId) {
-        if (isEditing && transactionId != -1L) {
-            viewModel.loadTransactionByTransactionId(transactionId)
+    // Save unsaved transaction when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!isEditing) {
+                viewModel.saveUnsavedTransaction(transactionType)
+            }
         }
     }
 
@@ -116,7 +133,12 @@ fun CustomerTransactionEntryScreen(
                 title = if (transactionType == "You Gave") stringResource(R.string.you_gave) else stringResource(
                     R.string.you_got
                 ),
-                onBackClick = { navController.popBackStack() }
+                onBackClick = {
+                    if (!isEditing) {
+                        viewModel.saveUnsavedTransaction(transactionType)
+                    }
+                    navController.popBackStack()
+                }
             )
         }
     ) { paddingValues ->

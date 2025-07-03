@@ -16,7 +16,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
-import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
+import com.arjun.len_denkhata.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter

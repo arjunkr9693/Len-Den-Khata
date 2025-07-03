@@ -1,14 +1,18 @@
-package com.arjun.len_denkhata.monthbook.ui.viewmodel
+package com.arjun.len_denkhata.ui.viewmodel
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arjun.len_denkhata.R
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
 import com.arjun.len_denkhata.data.repository.MonthBookRepository
 import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
+import com.arjun.len_denkhata.di.MonthBookPreferences
+import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,15 +28,32 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.time.LocalDate
 import javax.inject.Inject
+
+data class UnsavedTransactionData(
+    val amount: String = "",
+    val calculatedResult: String = "",
+    val description: String = "",
+    val selectedExpenseCategory: MonthBookExpenseCategory = MonthBookExpenseCategory.GENERAL,
+    val selectedDateMillis: Long = System.currentTimeMillis()
+)
 
 @HiltViewModel
 class MonthBookViewModel @Inject constructor(
     private val repository: MonthBookRepository,
-    private val context: Context
+    private val context: Context,
+    @MonthBookPreferences private val sharedPreferences: SharedPreferences
 ) : ViewModel() {
 
+    companion object {
+        private const val UNSAVED_TRANSACTION_KEY = "unsaved_transaction_"
+        private const val GSON_KEY = "gson_data"
+    }
+
     private val keyboardHandler = KeyboardEventHandler()
+    private val gson = Gson()
 
     private val _transactions = MutableStateFlow<List<MonthBookTransactionEntity>>(emptyList())
     val transactions: StateFlow<List<MonthBookTransactionEntity>> = _transactions.asStateFlow()
@@ -86,7 +107,14 @@ class MonthBookViewModel @Inject constructor(
     private val _dateError = MutableStateFlow<String?>(null)
     val dateError: StateFlow<String?> = _dateError.asStateFlow()
 
-    private val calculationPrefix = context.getString(com.arjun.len_denkhata.R.string.calculated_amount)
+    // Missing StateFlow variables that were referenced in the code
+    private val _hasUnsavedChanges = MutableStateFlow(false)
+    val hasUnsavedChanges: StateFlow<Boolean> = _hasUnsavedChanges.asStateFlow()
+
+    private val _lastUnsavedTransactionType = MutableStateFlow<MonthBookTransactionType?>(null)
+    val lastUnsavedTransactionType: StateFlow<MonthBookTransactionType?> = _lastUnsavedTransactionType.asStateFlow()
+
+    private val calculationPrefix = context.getString(R.string.calculated_amount)
 
     init {
         viewModelScope.launch {
@@ -161,7 +189,7 @@ class MonthBookViewModel @Inject constructor(
     fun updateDate(newDate: Date) {
         viewModelScope.launch(Dispatchers.Main) {
             if (newDate.after(Date())) {
-                _dateError.value = context.getString(com.arjun.len_denkhata.R.string.date_error_while_choosing)
+                _dateError.value = context.getString(R.string.date_error_while_choosing)
             } else {
                 _dateError.value = null
                 _selectedDate.value = newDate
@@ -218,6 +246,7 @@ class MonthBookViewModel @Inject constructor(
             )
 
             repository.insertTransaction(newTransaction)
+            clearFromSharedPreferences(type)
             withContext(Dispatchers.Main) {
                 _amountTextFieldValue.value = ""
                 _calculatedResult.value = ""
@@ -225,6 +254,8 @@ class MonthBookViewModel @Inject constructor(
                 _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
                 _selectedDate.value = Date()
                 _dateError.value = null
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
             }
         }
     }
@@ -273,6 +304,8 @@ class MonthBookViewModel @Inject constructor(
                 timestamp = mergedTimestamp
             )
             repository.updateTransaction(updatedTransaction)
+            clearFromSharedPreferences(type)
+
             withContext(Dispatchers.Main) {
                 _amountTextFieldValue.value = ""
                 _calculatedResult.value = ""
@@ -280,6 +313,8 @@ class MonthBookViewModel @Inject constructor(
                 _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
                 _selectedDate.value = Date()
                 _dateError.value = null
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
             }
         }
     }
@@ -342,7 +377,7 @@ class MonthBookViewModel @Inject constructor(
         delay(1000)
         val currentMonth = YearMonth.now()
         val calendar = Calendar.getInstance()
-        val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
         val currentMonthTransactions = _transactions.value.filter { transaction ->
             calendar.timeInMillis = transaction.timestamp
@@ -373,7 +408,7 @@ class MonthBookViewModel @Inject constructor(
         }
 
         val daysInMonthUpToNow = if (YearMonth.now() == currentMonth) {
-            java.time.LocalDate.now().dayOfMonth
+            LocalDate.now().dayOfMonth
         } else {
             currentMonth.lengthOfMonth()
         }
@@ -416,5 +451,120 @@ class MonthBookViewModel @Inject constructor(
             .sortedByDescending { it.first }
 
         _loadingCalculations.value = false
+    }
+
+    private fun saveToSharedPreferences(transactionType: MonthBookTransactionType) {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType.name}"
+        val unsavedData = UnsavedTransactionData(
+            amount = _amountTextFieldValue.value,
+            calculatedResult = _calculatedResult.value,
+            description = _description.value,
+            selectedExpenseCategory = _selectedExpenseCategory.value,
+            selectedDateMillis = _selectedDate.value.time
+        )
+
+        val jsonString = gson.toJson(unsavedData)
+        sharedPreferences.edit().apply {
+            putString(key, jsonString)
+            apply()
+        }
+    }
+
+    private fun loadFromSharedPreferences(transactionType: MonthBookTransactionType): UnsavedTransactionData? {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType.name}"
+        val jsonString = sharedPreferences.getString(key, null)
+
+        return if (jsonString != null) {
+            try {
+                gson.fromJson(jsonString, UnsavedTransactionData::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    private fun clearFromSharedPreferences(transactionType: MonthBookTransactionType) {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType.name}"
+        sharedPreferences.edit().apply {
+            remove(key)
+            apply()
+        }
+    }
+
+    private fun hasUnsavedData(): Boolean {
+        return _amountTextFieldValue.value.isNotEmpty() || _description.value.isNotEmpty()
+    }
+
+    fun saveUnsavedTransaction(transactionType: MonthBookTransactionType) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (hasUnsavedData()) {
+                saveToSharedPreferences(transactionType)
+                withContext(Dispatchers.Main) {
+                    _hasUnsavedChanges.value = true
+                    _lastUnsavedTransactionType.value = transactionType
+                }
+            }
+        }
+    }
+
+    fun loadUnsavedTransaction(transactionType: MonthBookTransactionType) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val unsavedData = loadFromSharedPreferences(transactionType)
+            if (unsavedData != null) {
+                withContext(Dispatchers.Main) {
+                    _amountTextFieldValue.value = unsavedData.amount
+                    _calculatedResult.value = unsavedData.calculatedResult
+                    _description.value = unsavedData.description
+                    _selectedExpenseCategory.value = unsavedData.selectedExpenseCategory
+                    _selectedDate.value = Date(unsavedData.selectedDateMillis)
+                    _hasUnsavedChanges.value = true
+                    _lastUnsavedTransactionType.value = transactionType
+
+                    // Update calculation if amount exists
+                    if (unsavedData.amount.isNotEmpty()) {
+                        updateCalculation(unsavedData.amount)
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearUnsavedTransaction() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Clear from SharedPreferences for both transaction types
+            clearFromSharedPreferences(MonthBookTransactionType.INCOME)
+            clearFromSharedPreferences(MonthBookTransactionType.EXPENSE)
+
+            withContext(Dispatchers.Main) {
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
+                _selectedDate.value = Date()
+                _dateError.value = null
+                keyboardHandler.clearCache()
+            }
+        }
+    }
+
+    fun clearUnsavedTransactionForType(transactionType: MonthBookTransactionType) {
+        viewModelScope.launch(Dispatchers.IO) {
+            clearFromSharedPreferences(transactionType)
+            withContext(Dispatchers.Main) {
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedExpenseCategory.value = MonthBookExpenseCategory.GENERAL
+                _selectedDate.value = Date()
+                _dateError.value = null
+                keyboardHandler.clearCache()
+            }
+        }
     }
 }

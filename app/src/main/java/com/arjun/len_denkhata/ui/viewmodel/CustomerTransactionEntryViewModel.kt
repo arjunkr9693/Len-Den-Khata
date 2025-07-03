@@ -1,6 +1,7 @@
 package com.arjun.len_denkhata.ui.viewmodel
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,8 @@ import com.arjun.len_denkhata.data.repository.customer.CustomerRepository
 import com.arjun.len_denkhata.data.repository.customer.CustomerTransactionRepository
 import com.arjun.len_denkhata.data.utils.KeyboardEventHandler
 import com.arjun.len_denkhata.data.utils.UserSession
+import com.arjun.len_denkhata.di.CustomerPreferences
+import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,10 +29,16 @@ import javax.inject.Inject
 class CustomerTransactionEntryViewModel @Inject constructor(
     private val transactionRepository: CustomerTransactionRepository,
     private val customerRepository: CustomerRepository,
-    private val context: Context
+    private val context: Context,
+    @CustomerPreferences private val sharedPreferences: SharedPreferences
 ) : ViewModel() {
 
     private val keyboardHandler = KeyboardEventHandler()
+    private val gson = Gson()
+
+    companion object {
+        private const val UNSAVED_TRANSACTION_KEY = "unsaved_customer_transaction_"
+    }
 
     // State exposed to the UI
     private val _amountTextFieldValue = MutableStateFlow("")
@@ -49,6 +58,12 @@ class CustomerTransactionEntryViewModel @Inject constructor(
 
     private val _dateError = MutableStateFlow<String?>(null)
     val dateError = _dateError.asStateFlow()
+
+    private val _hasUnsavedChanges = MutableStateFlow(false)
+    val hasUnsavedChanges = _hasUnsavedChanges.asStateFlow()
+
+    private val _lastUnsavedTransactionType = MutableStateFlow<String?>(null)
+    val lastUnsavedTransactionType = _lastUnsavedTransactionType.asStateFlow()
 
     private val calculationPrefix = context.getString(com.arjun.len_denkhata.R.string.calculated_amount)
 
@@ -173,7 +188,17 @@ class CustomerTransactionEntryViewModel @Inject constructor(
             // Update customer's last updated timestamp
             updateCustomerLastUpdated(customerId)
 
+            // Clear unsaved data
+            clearFromSharedPreferences(if (isCredit) "You Got" else "You Gave")
+
             withContext(Dispatchers.Main) {
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedDate.value = Date()
+                _dateError.value = null
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
                 navController.popBackStack()
             }
         }
@@ -221,7 +246,17 @@ class CustomerTransactionEntryViewModel @Inject constructor(
             // Update customer's last updated timestamp
             updateCustomerLastUpdated(customerTransaction.customerId)
 
+            // Clear unsaved data
+            clearFromSharedPreferences(if (customerTransaction.isCredit) "You Got" else "You Gave")
+
             withContext(Dispatchers.Main) {
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedDate.value = Date()
+                _dateError.value = null
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
                 navController.popBackStack()
             }
         }
@@ -258,6 +293,115 @@ class CustomerTransactionEntryViewModel @Inject constructor(
                     _selectedDate.value = extractedDate
                     keyboardHandler.clearCache()
                 }
+            }
+        }
+    }
+
+    private fun saveToSharedPreferences(transactionType: String) {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType}"
+        val unsavedData = UnsavedTransactionData(
+            amount = _amountTextFieldValue.value,
+            calculatedResult = _calculatedResult.value,
+            description = _description.value,
+            selectedDateMillis = _selectedDate.value.time
+        )
+
+        val jsonString = gson.toJson(unsavedData)
+        sharedPreferences.edit().apply {
+            putString(key, jsonString)
+            apply()
+        }
+    }
+
+    private fun loadFromSharedPreferences(transactionType: String): UnsavedTransactionData? {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType}"
+        val jsonString = sharedPreferences.getString(key, null)
+
+        return if (jsonString != null) {
+            try {
+                gson.fromJson(jsonString, UnsavedTransactionData::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    private fun clearFromSharedPreferences(transactionType: String) {
+        val key = "${UNSAVED_TRANSACTION_KEY}${transactionType}"
+        sharedPreferences.edit().apply {
+            remove(key)
+            apply()
+        }
+    }
+
+    private fun hasUnsavedData(): Boolean {
+        return _amountTextFieldValue.value.isNotEmpty() || _description.value.isNotEmpty()
+    }
+
+    fun saveUnsavedTransaction(transactionType: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (hasUnsavedData()) {
+                saveToSharedPreferences(transactionType)
+                withContext(Dispatchers.Main) {
+                    _hasUnsavedChanges.value = true
+                    _lastUnsavedTransactionType.value = transactionType
+                }
+            }
+        }
+    }
+
+    fun loadUnsavedTransaction(transactionType: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val unsavedData = loadFromSharedPreferences(transactionType)
+            if (unsavedData != null) {
+                withContext(Dispatchers.Main) {
+                    _amountTextFieldValue.value = unsavedData.amount
+                    _calculatedResult.value = unsavedData.calculatedResult
+                    _description.value = unsavedData.description
+                    _selectedDate.value = Date(unsavedData.selectedDateMillis)
+                    _hasUnsavedChanges.value = true
+                    _lastUnsavedTransactionType.value = transactionType
+
+                    // Update calculation if amount exists
+                    if (unsavedData.amount.isNotEmpty()) {
+                        updateCalculation(unsavedData.amount)
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearUnsavedTransaction() {
+        viewModelScope.launch(Dispatchers.IO) {
+            clearFromSharedPreferences("You Got")
+            clearFromSharedPreferences("textfield")
+            withContext(Dispatchers.Main) {
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedDate.value = Date()
+                _dateError.value = null
+                keyboardHandler.clearCache()
+            }
+        }
+    }
+
+    fun clearUnsavedTransactionForType(transactionType: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            clearFromSharedPreferences(transactionType)
+            withContext(Dispatchers.Main) {
+                _hasUnsavedChanges.value = false
+                _lastUnsavedTransactionType.value = null
+                _amountTextFieldValue.value = ""
+                _calculatedResult.value = ""
+                _description.value = ""
+                _selectedDate.value = Date()
+                _dateError.value = null
+                keyboardHandler.clearCache()
             }
         }
     }

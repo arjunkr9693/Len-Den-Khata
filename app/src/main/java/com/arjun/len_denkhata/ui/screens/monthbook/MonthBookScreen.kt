@@ -29,7 +29,7 @@ import com.arjun.len_denkhata.Screen
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookExpenseCategory
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionEntity
 import com.arjun.len_denkhata.data.database.transactions.monthbook.MonthBookTransactionType
-import com.arjun.len_denkhata.monthbook.ui.viewmodel.MonthBookViewModel
+import com.arjun.len_denkhata.ui.viewmodel.MonthBookViewModel
 import com.arjun.len_denkhata.ui.components.CustomTopBarWithIcon
 import java.text.SimpleDateFormat
 import java.util.*

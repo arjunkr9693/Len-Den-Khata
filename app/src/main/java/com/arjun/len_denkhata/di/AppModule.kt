@@ -1,6 +1,7 @@
 package com.arjun.len_denkhata.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.app.NotificationManagerCompat
 import androidx.room.Room
 import com.arjun.len_denkhata.data.database.AppDatabase
@@ -24,9 +25,18 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MonthBookPreferences
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class CustomerPreferences
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,7 +49,7 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "khatabook_db"
-        ).addMigrations(AppDatabase.MIGRATION_1_2) // Add the migration
+        ).addMigrations(AppDatabase.MIGRATION_1_2)
             .build()
     }
 
@@ -107,6 +117,20 @@ object AppModule {
 
     @Provides
     fun provideTransactionMapper(): TransactionMapper = TransactionMapper()
+
+    @Provides
+    @Singleton
+    @MonthBookPreferences
+    fun provideMonthBookSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
+        return context.getSharedPreferences("monthbook_preferences", Context.MODE_PRIVATE)
+    }
+
+    @Provides
+    @Singleton
+    @CustomerPreferences
+    fun provideCustomerSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
+        return context.getSharedPreferences("customer_preferences", Context.MODE_PRIVATE)
+    }
 
     @Provides
     fun provideTransactionProcessor(
