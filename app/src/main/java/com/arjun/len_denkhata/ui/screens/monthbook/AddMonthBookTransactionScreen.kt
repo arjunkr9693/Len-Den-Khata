@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,12 +56,14 @@ fun AddMonthBookTransactionScreen(
     var amountFieldFocused by remember { mutableStateOf(false) }
     var descriptionFieldFocused by remember { mutableStateOf(false) }
     var clearAmountFieldFocus by remember { mutableStateOf(false) }
+    var forceHideSystemKeyboard by remember { mutableStateOf(false) }
 
     // Date handling
     var showDatePicker by remember { mutableStateOf(false) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
+    val view = LocalView.current
 
     // Load transaction for editing
     LaunchedEffect(isEditing, transactionId) {
@@ -69,35 +72,41 @@ fun AddMonthBookTransactionScreen(
         }
     }
 
-    // Handle keyboard visibility
-    LaunchedEffect(amountFieldFocused) {
-        showCustomKeyboard = amountFieldFocused
+    // Force hide system keyboard when needed
+    LaunchedEffect(forceHideSystemKeyboard) {
+        if (forceHideSystemKeyboard) {
+            // Use InputMethodManager to force hide keyboard
+            val imm = view.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                    as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+
+            // Also try with keyboard controller
+            keyboardController?.hide()
+
+            // Reset the flag
+            forceHideSystemKeyboard = false
+        }
     }
+
+    // Handle keyboard visibility with improved logic
     LaunchedEffect(amountFieldFocused, descriptionFieldFocused) {
         when {
             amountFieldFocused -> {
-                // Amount field is focused - show custom keyboard
-                keyboardController?.hide()
-                if (showCustomKeyboard) {
-                    // If custom keyboard is already showing, no need to delay
-                    // Just continue showing it
-                } else {
-                    delay(300)
-                    showCustomKeyboard = true
-                }
+                // Amount field is focused - force hide system keyboard and show custom keyboard
+                forceHideSystemKeyboard = true
+                delay(150) // Wait for system keyboard to hide
+                showCustomKeyboard = true
             }
             descriptionFieldFocused -> {
-                // Description field is focused - show system keyboard
-                if (showCustomKeyboard) {
-                    showCustomKeyboard = false
-                    delay(300)
-                }
+                // Description field is focused - hide custom keyboard and show system keyboard
+                showCustomKeyboard = false
+                delay(200) // Wait for custom keyboard to hide
                 keyboardController?.show()
             }
             else -> {
                 // No field is focused - hide all keyboards
                 showCustomKeyboard = false
-                keyboardController?.hide()
+                forceHideSystemKeyboard = true
             }
         }
     }
@@ -108,7 +117,7 @@ fun AddMonthBookTransactionScreen(
         }
     }
 
-// Save unsaved transaction when leaving screen
+    // Save unsaved transaction when leaving screen
     DisposableEffect(Unit) {
         onDispose {
             if (!isEditing) {
@@ -116,6 +125,7 @@ fun AddMonthBookTransactionScreen(
             }
         }
     }
+
     // Add BackHandler to handle back button press when custom keyboard is visible
     BackHandler(enabled = showCustomKeyboard) {
         showCustomKeyboard = false

@@ -1,5 +1,6 @@
 package com.arjun.len_denkhata.ui.components
 
+import android.annotation.SuppressLint
 import android.widget.EditText
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,19 +24,26 @@ fun CustomAmountTextField(
     value: String,
     modifier: Modifier = Modifier,
     onFocusChanged: (Boolean) -> Unit,
-    shouldClearFocus: Boolean = false, // Add this parameter
-    onFocusCleared: () -> Unit = {} // Add this callback
+    shouldClearFocus: Boolean = false,
+    onFocusCleared: () -> Unit = {}
 ) {
     val editTextRef = remember { mutableStateOf<EditText?>(null) }
+    val view = LocalView.current
 
     // Get current colors from MaterialTheme
     val textColor = MaterialTheme.colorScheme.onSurface
-    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant // A common choice for hints
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     // Clear focus when requested
     LaunchedEffect(shouldClearFocus) {
         if (shouldClearFocus) {
-            editTextRef.value?.clearFocus()
+            editTextRef.value?.let { editText ->
+                editText.clearFocus()
+                // Also force hide system keyboard using InputMethodManager
+                val imm = view.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                        as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(editText.windowToken, 0)
+            }
             onFocusCleared()
         }
     }
@@ -43,7 +51,7 @@ fun CustomAmountTextField(
     AndroidView(
         modifier = modifier
             .fillMaxWidth(0.9f)
-            .height(56.dp) // Matches OutlinedTextField height
+            .height(56.dp)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline,
@@ -60,15 +68,41 @@ fun CustomAmountTextField(
                 setPadding(32, 0, 32, 0)
                 textSize = 16f
 
-                // --- START OF CHANGES ---
                 // Set text color from MaterialTheme
                 setTextColor(textColor.toArgb())
                 // Set hint color from MaterialTheme
                 setHintTextColor(hintColor.toArgb())
-                // --- END OF CHANGES ---
 
-                setOnFocusChangeListener { _, hasFocus ->
-                    onFocusChanged(hasFocus)
+                setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        // When gaining focus, ensure system keyboard is hidden
+                        val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                                as android.view.inputmethod.InputMethodManager
+                        imm.hideSoftInputFromWindow(view.windowToken, 0)
+                    }
+
+                    // Use post to avoid timing issues
+                    post {
+                        onFocusChanged(hasFocus)
+                    }
+                }
+
+                // Override onTouchEvent to handle taps properly
+                @SuppressLint("ClickableViewAccessibility")
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        android.view.MotionEvent.ACTION_DOWN -> {
+                            if (!hasFocus()) {
+                                requestFocus()
+                                // Force hide system keyboard immediately
+                                val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                                        as android.view.inputmethod.InputMethodManager
+                                imm.hideSoftInputFromWindow(windowToken, 0)
+                            }
+                            true
+                        }
+                        else -> false
+                    }
                 }
 
                 editTextRef.value = this
@@ -77,8 +111,8 @@ fun CustomAmountTextField(
         update = { view: EditText ->
             if (view.text.toString() != value) {
                 view.setText(value)
+                view.setSelection(value.length)
             }
-            view.setSelection(value.length)
         }
     )
 }
